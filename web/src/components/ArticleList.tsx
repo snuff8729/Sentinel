@@ -12,12 +12,12 @@ interface Props {
   backupStatuses?: Record<string, string>
 }
 
-const STATUS_ICON: Record<string, { icon: string; color: string }> = {
-  completed: { icon: '✓', color: 'text-green-500' },
-  failed: { icon: '✗', color: 'text-red-500' },
-  in_progress: { icon: '↻', color: 'text-blue-500' },
-  pending: { icon: '⏳', color: 'text-yellow-500' },
-  cancelled: { icon: '—', color: 'text-muted-foreground' },
+const STATUS_BADGE: Record<string, { label: string; className: string }> = {
+  completed: { label: '완료', className: 'bg-green-100 text-green-700 border-green-300' },
+  failed: { label: '실패', className: 'bg-red-100 text-red-700 border-red-300' },
+  in_progress: { label: '진행중', className: 'bg-blue-100 text-blue-700 border-blue-300 animate-pulse' },
+  pending: { label: '대기', className: 'bg-yellow-100 text-yellow-700 border-yellow-300' },
+  cancelled: { label: '취소', className: 'bg-gray-100 text-gray-500 border-gray-300' },
 }
 
 export function ArticleList({ slug, articles, selected, onToggle, onToggleAll, backupStatuses = {} }: Props) {
@@ -33,7 +33,7 @@ export function ArticleList({ slug, articles, selected, onToggle, onToggleAll, b
 
       {articles.map((article) => {
         const status = backupStatuses[String(article.id)]
-        const statusInfo = status ? STATUS_ICON[status] : null
+        const badgeInfo = status ? STATUS_BADGE[status] : null
 
         return (
           <div key={article.id} className="flex items-start gap-3 px-3 py-2.5 border-b last:border-b-0 hover:bg-muted/30">
@@ -49,9 +49,9 @@ export function ArticleList({ slug, articles, selected, onToggle, onToggleAll, b
                 to={`/article/${slug}/${article.id}`}
                 className="hover:underline leading-snug"
               >
-                {statusInfo && (
-                  <span className={`${statusInfo.color} mr-1 align-middle`} title={status}>
-                    {statusInfo.icon}
+                {badgeInfo && (
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle ${badgeInfo.className}`}>
+                    {badgeInfo.label}
                   </span>
                 )}
                 {article.category && (

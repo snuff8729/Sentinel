@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,6 +13,8 @@ import { ArticleList } from '@/components/ArticleList'
 import { channelApi, backupApi } from '@/api/client'
 import type { ArticleList as ArticleListType, Category, ChannelInfo } from '@/api/types'
 import { addRecentChannel } from '@/lib/recentChannels'
+import { useSSE } from '@/hooks/useSSE'
+import type { SSEArticleStarted, SSEArticleCompleted } from '@/api/types'
 
 export function ChannelPage() {
   const { slug } = useParams<{ slug: string }>()
@@ -35,6 +37,25 @@ export function ChannelPage() {
     '글쓴이': 'nickname',
     '댓글': 'comment',
   }
+
+  // SSE로 백업 상태 실시간 업데이트
+  const updateStatus = useCallback((articleId: number, status: string) => {
+    setBackupStatuses(prev => ({ ...prev, [String(articleId)]: status }))
+  }, [])
+
+  useSSE('/api/backup/events', {
+    queue_updated: () => {},
+    article_started: (data: unknown) => {
+      const d = data as SSEArticleStarted
+      updateStatus(d.article_id, 'in_progress')
+    },
+    article_completed: (data: unknown) => {
+      const d = data as SSEArticleCompleted
+      updateStatus(d.article_id, d.fail_count > 0 ? 'failed' : 'completed')
+    },
+    worker_paused: () => {},
+    worker_resumed: () => {},
+  })
 
   const category = searchParams.get('category') || undefined
   const mode = searchParams.get('mode') || undefined
@@ -106,11 +127,13 @@ export function ChannelPage() {
 
   const handleBackup = async () => {
     if (!slug) return
+    const count = selected.size
     for (const id of selected) {
       await backupApi.enqueue(slug, id)
+      updateStatus(id, 'pending')
     }
     setSelected(new Set())
-    alert(`${selected.size}개 게시글을 백업 큐에 추가했습니다.`)
+    alert(`${count}개 게시글을 백업 큐에 추가했습니다.`)
   }
 
   const setPage = (p: number) => {
