@@ -3,9 +3,10 @@ import '@/styles/article-content.css'
 
 function CommentItem({ comment, isReply = false }: { comment: Comment; isReply?: boolean }) {
   return (
-    <div className={`py-3 ${isReply ? 'ml-8 border-l-2 border-muted pl-4' : 'border-b'}`}>
+    <div className={`py-3 ${isReply ? 'ml-8 border-l-2 border-muted pl-3' : 'border-b'}`}>
       <div className="flex items-center gap-2 mb-1">
-        <span className="font-medium text-sm">{comment.author}</span>
+        {isReply && <span className="text-xs text-muted-foreground">↳</span>}
+        <span className={`font-medium text-sm ${isReply ? 'text-blue-600' : ''}`}>{comment.author}</span>
         <span className="text-xs text-muted-foreground">
           {new Date(comment.created_at).toLocaleString('ko-KR')}
         </span>

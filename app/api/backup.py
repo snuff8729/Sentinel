@@ -165,10 +165,13 @@ img.twemoji { display: inline; height: 1.2em; width: auto; vertical-align: middl
 /* === 댓글 === */
 .article-comment { margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb; }
 .article-comment > .title { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
-.comment-wrapper { border-bottom: 1px solid #f3f4f6; }
+.list-area > .comment-wrapper { border-bottom: 1px solid #e5e7eb; }
+.comment-wrapper { }
 .comment-item { padding: 10px 0; }
+.comment-item .content { }
 .comment-item .info-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 13px; }
 .comment-item .user-info a { color: #1a1a1a; font-weight: 500; text-decoration: none; }
+.comment-item .user-info.author a { color: #2563eb; }
 .comment-item .user-icon { display: none; }
 .comment-item .zero-at-one-space { display: none; }
 .comment-item .avatar img { width: 24px; height: 24px; border-radius: 50%; }
@@ -176,6 +179,12 @@ img.twemoji { display: inline; height: 1.2em; width: auto; vertical-align: middl
 .comment-item .right a { color: #9ca3af; }
 .comment-item .message { font-size: 14px; }
 .comment-item .message .text pre { font-family: inherit; }
+
+/* 대댓글 */
+.comment-wrapper > .comment-wrapper {
+  margin-left: 32px; padding-left: 12px; border-left: 2px solid #e5e7eb;
+}
+.comment-item .ion-android-arrow-dropup-circle { font-size: 12px; color: #9ca3af; margin-right: 4px; }
 
 /* === 숨김 === */
 .btn-more, .article-write-btns, .reply-link, [href*="reports/submit"] { display: none; }
