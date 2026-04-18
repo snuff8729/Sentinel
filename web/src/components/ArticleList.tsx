@@ -29,7 +29,6 @@ export function ArticleList({ slug, articles, selected, onToggle, onToggleAll }:
           <TableHead className="w-10">
             <Checkbox checked={allSelected} onCheckedChange={onToggleAll} />
           </TableHead>
-          <TableHead className="w-20">번호</TableHead>
           <TableHead>제목</TableHead>
           <TableHead className="w-24">작성자</TableHead>
           <TableHead className="w-28">작성일</TableHead>
@@ -46,7 +45,6 @@ export function ArticleList({ slug, articles, selected, onToggle, onToggleAll }:
                 onCheckedChange={() => onToggle(article.id)}
               />
             </TableCell>
-            <TableCell className="text-muted-foreground">{article.id}</TableCell>
             <TableCell>
               <Link
                 to={`/article/${slug}/${article.id}`}
