@@ -203,7 +203,15 @@ def parse_article_detail(html: str, article_id: int) -> ArticleDetail:
                 pass
 
     content_el = soup.select_one(".article-body .article-content")
-    content_html = content_el.decode_contents() if content_el else ""
+    if content_el:
+        # protocol-relative URL을 https로 변환
+        for tag in content_el.select("[src]"):
+            src = tag.get("src", "")
+            if src.startswith("//"):
+                tag["src"] = f"https:{src}"
+        content_html = content_el.decode_contents()
+    else:
+        content_html = ""
 
     attachments: list[Attachment] = []
     article_body = soup.select_one(".article-body")
