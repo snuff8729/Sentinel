@@ -30,6 +30,7 @@ class BackupService:
         self._client = client
         self._data_dir = Path(data_dir)
         self._queue = DownloadQueue()
+        self._http_lock = asyncio.Lock()  # curl-cffi Session은 스레드 세이프하지 않음
 
     async def backup_article(
         self,
@@ -50,9 +51,10 @@ class BackupService:
                 return
 
             logger.info("[%d] 상세 페이지 가져오는 중...", article_id)
-            resp = await asyncio.to_thread(
-                self._client.get, f"/b/{channel_slug}/{article_id}"
-            )
+            async with self._http_lock:
+                resp = await asyncio.to_thread(
+                    self._client.get, f"/b/{channel_slug}/{article_id}"
+                )
             html = resp.text
 
             detail = parse_article_detail(html, article_id)
@@ -173,7 +175,8 @@ class BackupService:
                 return
 
             try:
-                file_resp = await asyncio.to_thread(self._client.get, item.url)
+                async with self._http_lock:
+                    file_resp = await asyncio.to_thread(self._client.get, item.url)
                 dest.write_bytes(file_resp.content)
                 results["completed"] += 1
                 logger.info(
@@ -238,7 +241,8 @@ class BackupService:
                             break
                 return
             try:
-                file_resp = await asyncio.to_thread(self._client.get, url)
+                async with self._http_lock:
+                    file_resp = await asyncio.to_thread(self._client.get, url)
                 dest.write_bytes(file_resp.content)
                 results["completed"] += 1
                 completed_so_far += 1

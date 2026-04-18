@@ -1,5 +1,6 @@
 from __future__ import annotations
 import asyncio
+import logging
 import os
 import time
 from collections import defaultdict
@@ -7,6 +8,8 @@ from dataclasses import dataclass, field
 from typing import Awaitable, Callable
 from urllib.parse import urlparse
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -89,6 +92,7 @@ class DownloadQueue:
                     else:
                         self._last_request[domain_key] = now
                 if wait > 0:
+                    logger.debug("[queue] %s — waiting %.1fs (domain: %s)", url.split("/")[-1][:20], wait, domain_key)
                     await asyncio.sleep(wait)
                 if cancel_check and cancel_check():
                     return
