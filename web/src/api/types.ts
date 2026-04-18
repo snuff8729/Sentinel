@@ -5,7 +5,6 @@ export interface Category {
 
 export interface ArticleRow {
   id: number
-  num: number
   title: string
   category: string | null
   comment_count: number

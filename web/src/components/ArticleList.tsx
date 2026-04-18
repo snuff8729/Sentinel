@@ -46,7 +46,7 @@ export function ArticleList({ slug, articles, selected, onToggle, onToggleAll }:
                 onCheckedChange={() => onToggle(article.id)}
               />
             </TableCell>
-            <TableCell className="text-muted-foreground">{article.num}</TableCell>
+            <TableCell className="text-muted-foreground">{article.id}</TableCell>
             <TableCell>
               <Link
                 to={`/article/${slug}/${article.id}`}

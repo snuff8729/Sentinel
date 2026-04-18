@@ -34,14 +34,6 @@ def parse_article_list(html: str) -> list[ArticleRow]:
 
 
 def _parse_article_row(row: Tag) -> ArticleRow | None:
-    id_el = row.select_one(".col-id")
-    if not id_el:
-        return None
-    try:
-        num = int(id_el.get_text(strip=True))
-    except ValueError:
-        return None
-
     # 글로벌 ID를 href에서 추출: /b/{slug}/{global_id}?...
     href = row.get("href", "")
     global_id_match = re.search(r"/b/[^/]+/(\d+)", href)
@@ -83,7 +75,6 @@ def _parse_article_row(row: Tag) -> ArticleRow | None:
 
     return ArticleRow(
         id=article_id,
-        num=num,
         title=title,
         category=category,
         comment_count=comment_count,
