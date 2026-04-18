@@ -21,8 +21,17 @@ export function ChannelPage() {
   const [data, setData] = useState<ArticleListType | null>(null)
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [keyword, setKeyword] = useState('')
-  const [searchTarget, setSearchTarget] = useState('all')
+  const [searchTarget, setSearchTarget] = useState('전체')
   const [loading, setLoading] = useState(false)
+
+  const SEARCH_TARGETS: Record<string, string> = {
+    '전체': 'all',
+    '제목/내용': 'title_content',
+    '제목': 'title',
+    '내용': 'content',
+    '글쓴이': 'nickname',
+    '댓글': 'comment',
+  }
 
   const category = searchParams.get('category') || undefined
   const mode = searchParams.get('mode') || undefined
@@ -46,7 +55,7 @@ export function ChannelPage() {
     e.preventDefault()
     if (!slug || !keyword.trim()) return
     setLoading(true)
-    channelApi.search(slug, keyword, searchTarget)
+    channelApi.search(slug, keyword, SEARCH_TARGETS[searchTarget] || 'all')
       .then(setData)
       .finally(() => setLoading(false))
   }
@@ -133,15 +142,14 @@ export function ChannelPage() {
         <form onSubmit={handleSearch} className="flex gap-2">
           <Select value={searchTarget} onValueChange={(v) => v && setSearchTarget(v)}>
             <SelectTrigger className="w-28">
-              <SelectValue />
+              <SelectValue placeholder="전체" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">전체</SelectItem>
-              <SelectItem value="title_content">제목/내용</SelectItem>
-              <SelectItem value="title">제목</SelectItem>
-              <SelectItem value="content">내용</SelectItem>
-              <SelectItem value="nickname">글쓴이</SelectItem>
-              <SelectItem value="comment">댓글</SelectItem>
+              {Object.keys(SEARCH_TARGETS).map(label => (
+                <SelectItem key={label} value={label}>
+                  {label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Input
