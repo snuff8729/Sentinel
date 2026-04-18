@@ -1,24 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { backupApi } from '@/api/client'
 import { useSSE } from '@/hooks/useSSE'
 import type { BackupHistoryItem, DownloadItem, SSEArticleStarted, SSEArticleCompleted } from '@/api/types'
 
-const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-  completed: { label: '완료', variant: 'default' },
-  failed: { label: '실패', variant: 'destructive' },
-  cancelled: { label: '취소', variant: 'secondary' },
-  pending: { label: '대기', variant: 'outline' },
-  in_progress: { label: '진행중', variant: 'outline' },
+const STATUS_BADGE: Record<string, { label: string; className: string }> = {
+  completed: { label: '완료', className: 'bg-green-100 text-green-700 border-green-300' },
+  failed: { label: '실패', className: 'bg-red-100 text-red-700 border-red-300' },
+  in_progress: { label: '진행중', className: 'bg-blue-100 text-blue-700 border-blue-300 animate-pulse' },
+  pending: { label: '대기', className: 'bg-yellow-100 text-yellow-700 border-yellow-300' },
+  cancelled: { label: '취소', className: 'bg-gray-100 text-gray-500 border-gray-300' },
 }
 
 const DL_STATUS: Record<string, { label: string; color: string }> = {
@@ -43,12 +34,10 @@ export function HistoryPage() {
       .finally(() => setLoading(false))
   }, [filter])
 
-  // SSE로 실시간 업데이트
   useSSE('/api/backup/events', {
     queue_updated: () => {},
     article_started: (data: unknown) => {
       const d = data as SSEArticleStarted
-      // 이력에 in_progress 항목 추가/업데이트
       setItems(prev => {
         const exists = prev.some(item => item.id === d.article_id)
         if (exists) {
@@ -80,7 +69,6 @@ export function HistoryPage() {
             : item
         )
       )
-      // 상세가 열려있으면 다운로드 목록도 갱신
       if (expandedId === d.article_id) {
         backupApi.getDetail(d.article_id).then(detail => setDownloads(detail.downloads))
       }
@@ -105,15 +93,16 @@ export function HistoryPage() {
     }
   }
 
-  const handleRetry = async (item: BackupHistoryItem) => {
+  const handleRetry = async (e: React.MouseEvent, item: BackupHistoryItem) => {
+    e.stopPropagation()
     await backupApi.enqueue(item.channel_slug, item.id, true)
-    alert('백업 큐에 다시 추가했습니다.')
   }
 
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">백업 이력</h1>
 
+      {/* 필터 */}
       <div className="flex gap-2">
         {[undefined, 'completed', 'failed', 'cancelled'].map(status => (
           <Button
@@ -122,7 +111,7 @@ export function HistoryPage() {
             size="sm"
             onClick={() => setFilter(status)}
           >
-            {status ? STATUS_LABELS[status]?.label ?? status : '전체'}
+            {status ? STATUS_BADGE[status]?.label ?? status : '전체'}
           </Button>
         ))}
       </div>
@@ -132,119 +121,107 @@ export function HistoryPage() {
       ) : items.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">이력이 없습니다.</div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-20">ID</TableHead>
-              <TableHead>제목</TableHead>
-              <TableHead className="w-24">작성자</TableHead>
-              <TableHead className="w-20">상태</TableHead>
-              <TableHead className="w-40">백업 시각</TableHead>
-              <TableHead className="w-20"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.map(item => {
-              const statusInfo = STATUS_LABELS[item.backup_status] ?? { label: item.backup_status, variant: 'outline' as const }
-              const isExpanded = expandedId === item.id
-              return (
-                <>
-                  <TableRow
-                    key={item.id}
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleToggleDetail(item.id)}
-                  >
-                    <TableCell className="text-muted-foreground">{item.id}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <span className="text-muted-foreground text-xs">{isExpanded ? '▼' : '▶'}</span>
-                        <span>{item.title}</span>
-                      </div>
-                      {item.backup_error && (
-                        <div className="text-xs text-destructive mt-0.5 ml-4">{item.backup_error}</div>
+        <div className="border rounded-md">
+          {items.map(item => {
+            const badgeInfo = STATUS_BADGE[item.backup_status] ?? { label: item.backup_status, className: 'bg-gray-100 text-gray-500 border-gray-300' }
+            const isExpanded = expandedId === item.id
+
+            return (
+              <div key={item.id} className="border-b last:border-b-0">
+                {/* 메인 행 */}
+                <div
+                  className="flex items-start gap-3 px-3 py-2.5 hover:bg-muted/30 cursor-pointer"
+                  onClick={() => handleToggleDetail(item.id)}
+                >
+                  <div className="flex-1 min-w-0">
+                    {/* 윗줄: 상태 + 제목 + 에러 */}
+                    <div className="leading-snug">
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle ${badgeInfo.className}`}>
+                        {badgeInfo.label}
+                      </span>
+                      <span className="align-middle">{item.title}</span>
+                      <span className="text-muted-foreground text-xs ml-1 align-middle">
+                        {isExpanded ? '▼' : '▶'}
+                      </span>
+                    </div>
+                    {item.backup_error && (
+                      <div className="text-xs text-destructive mt-0.5">{item.backup_error}</div>
+                    )}
+
+                    {/* 아랫줄: 작성자 + 채널 + 백업 시각 */}
+                    <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                      <span>{item.author || '—'}</span>
+                      {item.channel_slug && (
+                        <>
+                          <span>·</span>
+                          <span>{item.channel_slug}</span>
+                        </>
                       )}
-                    </TableCell>
-                    <TableCell className="text-sm">{item.author}</TableCell>
-                    <TableCell>
-                      <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {item.backed_up_at
-                        ? new Date(item.backed_up_at).toLocaleString('ko-KR')
-                        : '—'}
-                    </TableCell>
-                    <TableCell onClick={e => e.stopPropagation()}>
+                      <span>·</span>
+                      <span>
+                        {item.backed_up_at
+                          ? new Date(item.backed_up_at).toLocaleString('ko-KR')
+                          : '—'}
+                      </span>
                       {item.backup_status === 'failed' && (
-                        <Button size="sm" variant="ghost" onClick={() => handleRetry(item)}>
-                          재시도
-                        </Button>
+                        <>
+                          <span>·</span>
+                          <button
+                            className="text-blue-500 hover:underline"
+                            onClick={(e) => handleRetry(e, item)}
+                          >
+                            재시도
+                          </button>
+                        </>
                       )}
-                    </TableCell>
-                  </TableRow>
-                  {isExpanded && (
-                    <TableRow key={`${item.id}-detail`}>
-                      <TableCell colSpan={6} className="bg-muted/30 p-0">
-                        {detailLoading ? (
-                          <div className="text-center py-4 text-sm text-muted-foreground">로딩 중...</div>
-                        ) : (
-                          <div className="p-4 space-y-2">
-                            <div className="text-sm font-medium mb-2">
-                              파일 {downloads.length}개
-                              {(() => {
-                                const failed = downloads.filter(d => d.status === 'failed').length
-                                const warned = downloads.filter(d => d.warning).length
-                                const parts = []
-                                if (failed > 0) parts.push(<span key="f" className="text-red-600">{failed} 실패</span>)
-                                if (warned > 0) parts.push(<span key="w" className="text-yellow-600">{warned} 경고</span>)
-                                return parts.length > 0 ? <> — {parts.reduce<React.ReactNode[]>((acc, el, i) => i === 0 ? [el] : [...acc, ', ', el], [])}</> : null
-                              })()}
-                            </div>
-                            <div className="max-h-80 overflow-y-auto border rounded">
-                              <table className="w-full text-xs">
-                                <thead className="sticky top-0 bg-background">
-                                  <tr className="border-b">
-                                    <th className="text-left py-1.5 px-2 font-medium">파일</th>
-                                    <th className="text-left py-1.5 px-2 w-16 font-medium">타입</th>
-                                    <th className="text-left py-1.5 px-2 w-16 font-medium">상태</th>
-                                    <th className="text-left py-1.5 px-2 font-medium">비고</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {downloads.map(d => {
-                                    const dlStatus = DL_STATUS[d.status] ?? { label: d.status, color: '' }
-                                    return (
-                                      <tr key={d.id} className="border-b last:border-b-0 hover:bg-muted/20">
-                                        <td className="py-1.5 px-2 truncate max-w-xs font-mono" title={d.url}>
-                                          {d.local_path.split('/').pop()}
-                                        </td>
-                                        <td className="py-1.5 px-2">{d.file_type}</td>
-                                        <td className={`py-1.5 px-2 font-medium ${dlStatus.color}`}>
-                                          {dlStatus.label}
-                                        </td>
-                                        <td className="py-1.5 px-2">
-                                          {d.error && (
-                                            <span className="text-red-600">{d.error}</span>
-                                          )}
-                                          {d.warning && (
-                                            <span className="text-yellow-600">⚠ {d.warning}</span>
-                                          )}
-                                        </td>
-                                      </tr>
-                                    )
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </>
-              )
-            })}
-          </TableBody>
-        </Table>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 상세 펼침 */}
+                {isExpanded && (
+                  <div className="bg-muted/30 border-t px-4 py-3">
+                    {detailLoading ? (
+                      <div className="text-center py-4 text-sm text-muted-foreground">로딩 중...</div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="text-sm font-medium">
+                          파일 {downloads.length}개
+                          {(() => {
+                            const failed = downloads.filter(d => d.status === 'failed').length
+                            const warned = downloads.filter(d => d.warning).length
+                            const parts: string[] = []
+                            if (failed > 0) parts.push(`${failed} 실패`)
+                            if (warned > 0) parts.push(`${warned} 경고`)
+                            return parts.length > 0 ? ` — ${parts.join(', ')}` : ''
+                          })()}
+                        </div>
+                        <div className="max-h-80 overflow-y-auto border rounded bg-background">
+                          {downloads.map(d => {
+                            const dlStatus = DL_STATUS[d.status] ?? { label: d.status, color: '' }
+                            return (
+                              <div key={d.id} className="flex items-center gap-3 px-3 py-1.5 border-b last:border-b-0 text-xs hover:bg-muted/20">
+                                <span className="font-mono truncate flex-1" title={d.url}>
+                                  {d.local_path.split('/').pop()}
+                                </span>
+                                <span className="w-14 text-muted-foreground">{d.file_type}</span>
+                                <span className={`w-10 font-medium ${dlStatus.color}`}>{dlStatus.label}</span>
+                                <span className="flex-1 truncate">
+                                  {d.error && <span className="text-red-600">{d.error}</span>}
+                                  {d.warning && <span className="text-yellow-600">⚠ {d.warning}</span>}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
       )}
     </div>
   )
