@@ -9,6 +9,7 @@ export function SettingsPage() {
   const [apiKey, setApiKey] = useState('')
   const [model, setModel] = useState('')
   const [prompt, setPrompt] = useState('')
+  const [defaultPrompt, setDefaultPrompt] = useState('')
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
@@ -21,6 +22,7 @@ export function SettingsPage() {
       setModel(s.model)
       setPrompt(s.prompt)
     })
+    settingsApi.getDefaultPrompt().then(d => setDefaultPrompt(d.prompt))
   }, [])
 
   const handleSave = async () => {
@@ -102,7 +104,7 @@ export function SettingsPage() {
               className="flex min-h-[160px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               value={prompt}
               onChange={e => setPrompt(e.target.value)}
-              placeholder="비워두면 기본 프롬프트를 사용합니다."
+              placeholder={defaultPrompt || "비워두면 기본 프롬프트를 사용합니다."}
             />
             <p className="text-xs text-muted-foreground">
               게시글 링크 분류에 사용할 시스템 프롬프트입니다. JSON 형식으로 응답하도록 지시해야 합니다.

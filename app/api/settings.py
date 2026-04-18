@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from app.db.engine import get_session
 from app.db.repository import get_setting, set_setting, get_all_settings
+from app.llm.analyze import DEFAULT_SYSTEM_PROMPT
 from app.llm.client import LLMClient
 
 
@@ -27,6 +28,10 @@ def create_settings_router(engine) -> APIRouter:
                 model=get_setting(session, "llm_model") or "",
                 prompt=get_setting(session, "llm_prompt") or "",
             ).model_dump()
+
+    @router.get("/llm/default-prompt")
+    async def get_default_prompt():
+        return {"prompt": DEFAULT_SYSTEM_PROMPT}
 
     @router.put("/llm")
     async def update_llm_settings(settings: LLMSettings):

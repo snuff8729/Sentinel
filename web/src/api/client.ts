@@ -86,6 +86,7 @@ export const articleApi = {
 
 export const settingsApi = {
   getLLM: () => get<LLMSettings>('/settings/llm'),
+  getDefaultPrompt: () => get<{ prompt: string }>('/settings/llm/default-prompt'),
   updateLLM: (settings: LLMSettings) => put<{ status: string }>('/settings/llm', settings),
   testLLM: (settings: LLMSettings) => post<{ success: boolean; response?: string; error?: string }>('/settings/llm/test', settings),
 }
