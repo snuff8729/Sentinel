@@ -74,6 +74,8 @@ export interface BackupHistoryItem {
   backup_status: string
   backup_error: string | null
   backed_up_at: string | null
+  analysis_status?: string
+  analysis_error?: string | null
 }
 
 export interface DownloadItem {
@@ -86,9 +88,18 @@ export interface DownloadItem {
   warning: string | null
 }
 
+export interface ArticleLinkItem {
+  id: number
+  url: string
+  type: string
+  label: string
+  source_article_id: number | null
+}
+
 export interface BackupDetail {
   article: BackupHistoryItem
   downloads: DownloadItem[]
+  links?: ArticleLinkItem[]
 }
 
 export interface LLMSettings {

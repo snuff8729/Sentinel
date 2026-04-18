@@ -143,6 +143,16 @@ export function HistoryPage() {
                       <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle ${badgeInfo.className}`}>
                         {badgeInfo.label}
                       </span>
+                      {item.analysis_status === 'completed' && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle bg-indigo-100 text-indigo-700 border-indigo-300">
+                          분석완료
+                        </span>
+                      )}
+                      {item.analysis_status === 'failed' && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle bg-orange-100 text-orange-700 border-orange-300">
+                          분석실패
+                        </span>
+                      )}
                       <Link
                         to={`/backup/${item.id}`}
                         className="align-middle hover:underline"

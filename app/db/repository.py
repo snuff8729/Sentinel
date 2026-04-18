@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime, timezone
 from sqlmodel import Session, select
-from app.db.models import Article, Download, Setting
+from app.db.models import Article, ArticleLink, Download, Setting
 
 def create_article(session: Session, *, id: int, channel_slug: str, title: str, author: str,
     created_at: datetime, url: str, category: str | None = None) -> Article:
@@ -64,6 +64,41 @@ def update_download_status(session: Session, download_id: int, status: str, *, e
     download.status = status
     download.error = error
     session.add(download)
+    session.commit()
+
+
+def get_links_for_article(session: Session, article_id: int) -> list[ArticleLink]:
+    statement = select(ArticleLink).where(ArticleLink.article_id == article_id)
+    return list(session.exec(statement).all())
+
+
+def save_article_links(session: Session, article_id: int, links: list[dict], source_article_id: int | None = None) -> None:
+    for link in links:
+        al = ArticleLink(
+            article_id=article_id,
+            url=link["url"],
+            link_type=link.get("type", "other"),
+            label=link.get("label", ""),
+            source_article_id=source_article_id,
+        )
+        session.add(al)
+    session.commit()
+
+
+def delete_links_for_article(session: Session, article_id: int) -> None:
+    links = get_links_for_article(session, article_id)
+    for link in links:
+        session.delete(link)
+    session.commit()
+
+
+def update_article_analysis(session: Session, article_id: int, status: str, *, error: str | None = None) -> None:
+    article = session.get(Article, article_id)
+    if article is None:
+        return
+    article.analysis_status = status
+    article.analysis_error = error
+    session.add(article)
     session.commit()
 
 

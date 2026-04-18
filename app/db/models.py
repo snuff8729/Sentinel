@@ -13,10 +13,21 @@ class Article(SQLModel, table=True):
     backup_status: str = Field(default="pending")
     backup_error: str | None = None
     backed_up_at: datetime | None = None
+    analysis_status: str = Field(default="none")  # "none" | "pending" | "completed" | "failed"
+    analysis_error: str | None = None
 
 class Setting(SQLModel, table=True):
     key: str = Field(primary_key=True)
     value: str
+
+
+class ArticleLink(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    article_id: int = Field(foreign_key="article.id")
+    url: str
+    link_type: str  # "download" | "reference" | "other"
+    label: str
+    source_article_id: int | None = None  # reference 따라간 경우 원래 게시글 ID
 
 
 class Download(SQLModel, table=True):

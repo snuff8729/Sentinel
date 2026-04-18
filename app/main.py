@@ -12,6 +12,7 @@ from app.backup.events import EventBus
 from app.backup.service import BackupService
 from app.backup.worker import BackupWorker
 from app.db.engine import create_engine_and_tables
+from app.llm.service import LinkAnalysisService
 from app.scraper.arca.client import ArcaClient
 
 app = FastAPI(title="Sentinel")
@@ -26,7 +27,8 @@ async def startup():
     client = ArcaClient()
     event_bus = EventBus()
     service = BackupService(engine=engine, client=client)
-    worker = BackupWorker(service=service, event_bus=event_bus)
+    link_analysis = LinkAnalysisService(engine=engine, arca_client=client)
+    worker = BackupWorker(service=service, event_bus=event_bus, link_analysis=link_analysis)
 
     # API routers
     channel_router = create_channel_router(client, engine)

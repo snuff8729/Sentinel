@@ -47,6 +47,8 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
                     "backup_status": a.backup_status,
                     "backup_error": a.backup_error,
                     "backed_up_at": a.backed_up_at.isoformat() if a.backed_up_at else None,
+                    "analysis_status": a.analysis_status,
+                    "analysis_error": a.analysis_error,
                 }
                 for a in articles
             ]
@@ -67,13 +69,14 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
     @router.get("/detail/{article_id}")
     async def get_backup_detail(article_id: int):
         from app.db.engine import get_session
-        from app.db.repository import get_article, get_downloads_for_article
+        from app.db.repository import get_article, get_downloads_for_article, get_links_for_article
         _engine = engine or worker._service._engine
         with get_session(_engine) as session:
             article = get_article(session, article_id)
             if not article:
                 return {"error": "not found"}
             downloads = get_downloads_for_article(session, article_id)
+            links = get_links_for_article(session, article_id)
             return {
                 "article": {
                     "id": article.id,
@@ -86,6 +89,8 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
                     "backup_status": article.backup_status,
                     "backup_error": article.backup_error,
                     "backed_up_at": article.backed_up_at.isoformat() if article.backed_up_at else None,
+                    "analysis_status": article.analysis_status,
+                    "analysis_error": article.analysis_error,
                 },
                 "downloads": [
                     {
@@ -98,6 +103,16 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
                         "warning": d.warning,
                     }
                     for d in downloads
+                ],
+                "links": [
+                    {
+                        "id": l.id,
+                        "url": l.url,
+                        "type": l.link_type,
+                        "label": l.label,
+                        "source_article_id": l.source_article_id,
+                    }
+                    for l in links
                 ],
             }
 

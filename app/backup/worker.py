@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from app.backup.events import Event, EventBus
 from app.backup.service import BackupService
+from app.llm.service import LinkAnalysisService
 
 logger = logging.getLogger(__name__)
 
@@ -18,9 +19,10 @@ class BackupRequest:
 
 
 class BackupWorker:
-    def __init__(self, service: BackupService, event_bus: EventBus):
+    def __init__(self, service: BackupService, event_bus: EventBus, link_analysis: LinkAnalysisService | None = None):
         self._service = service
         self._event_bus = event_bus
+        self._link_analysis = link_analysis
         self._queue: asyncio.Queue[BackupRequest] = asyncio.Queue()
         self._pause_event = asyncio.Event()
         self._pause_event.set()
@@ -108,6 +110,12 @@ class BackupWorker:
                     cancel_check=lambda aid=req.article_id: aid in self._cancelled,
                     event_bus=self._event_bus,
                 )
+                # 백업 성공 후 자동 링크 분석
+                if self._link_analysis:
+                    try:
+                        await self._link_analysis.analyze_article(req.article_id, req.channel_slug)
+                    except Exception as e:
+                        logger.error("Link analysis failed for %d: %s", req.article_id, e)
             except Exception as e:
                 logger.error("Failed to backup article %d: %s", req.article_id, e)
 
