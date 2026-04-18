@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
 import { ChannelInput } from '@/components/ChannelInput'
+import { RecentChannels } from '@/components/RecentChannels'
 import { ChannelPage } from '@/pages/ChannelPage'
 import { ArticleDetailPage } from '@/pages/ArticleDetailPage'
 import { QueuePage } from '@/pages/QueuePage'
@@ -20,6 +21,7 @@ function App() {
               <div className="space-y-6">
                 <h1 className="text-2xl font-bold">채널 입력</h1>
                 <ChannelInput />
+                <RecentChannels />
               </div>
             } />
             <Route path="/channel/:slug" element={<ChannelPage />} />

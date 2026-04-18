@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { addRecentChannel } from '@/lib/recentChannels'
 
 export function ChannelInput() {
   const [url, setUrl] = useState('')
@@ -11,7 +12,10 @@ export function ChannelInput() {
     e.preventDefault()
     const match = url.match(/arca\.live\/b\/([^/?]+)/)
     const slug = match ? match[1] : url.trim()
-    if (slug) navigate(`/channel/${slug}`)
+    if (slug) {
+      addRecentChannel(slug)
+      navigate(`/channel/${slug}`)
+    }
   }
 
   return (
