@@ -107,7 +107,32 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
         html_path = data_dir / "articles" / str(article_id) / "backup.html"
         if not html_path.exists():
             return HTMLResponse("<p>백업 HTML이 없습니다.</p>", status_code=404)
-        return HTMLResponse(html_path.read_text(encoding="utf-8"))
+        html = html_path.read_text(encoding="utf-8")
+
+        # 상대 경로를 절대 경로로 변환
+        base_path = f"/data/articles/{article_id}"
+        html = html.replace('./images/', f'{base_path}/images/')
+        html = html.replace('./videos/', f'{base_path}/videos/')
+        html = html.replace('./audio/', f'{base_path}/audio/')
+        html = html.replace('../../emoticons/', '/data/emoticons/')
+
+        # 기본 CSS 삽입
+        base_css = """<style>
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 16px; line-height: 1.6; color: #1a1a1a; background: #fff; }
+img { max-width: 100%; height: auto; border-radius: 4px; margin: 4px 0; }
+video { max-width: 100%; border-radius: 4px; margin: 4px 0; }
+audio { width: 100%; margin: 4px 0; }
+pre { white-space: pre-wrap; word-break: break-word; }
+.emoticon, .arca-emoticon { display: inline; width: auto; height: 1.5em; vertical-align: middle; margin: 0 2px; }
+.combo_emoticon-wrapper { display: inline-block; }
+a { color: #2563eb; }
+hr { border: none; border-top: 1px solid #e5e7eb; margin: 16px 0; }
+</style>"""
+        html = html.replace('<head>', f'<head>{base_css}', 1)
+        if '<head>' not in html:
+            html = base_css + html
+
+        return HTMLResponse(html)
 
     @router.get("/events")
     async def backup_events():

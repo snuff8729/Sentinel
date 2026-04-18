@@ -37,6 +37,11 @@ async def startup():
 
     asyncio.create_task(worker.run())
 
+    # 백업 파일 정적 서빙 (이미지/비디오/오디오)
+    data_dir = Path(__file__).parent.parent / "data"
+    if data_dir.exists():
+        app.mount("/data", StaticFiles(directory=str(data_dir)), name="data")
+
     # Static file serving (React build)
     dist_dir = Path(__file__).parent.parent / "web" / "dist"
     if dist_dir.exists():
