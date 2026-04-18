@@ -3,6 +3,7 @@ import { ChannelInput } from '@/components/ChannelInput'
 import { ChannelPage } from '@/pages/ChannelPage'
 import { ArticleDetailPage } from '@/pages/ArticleDetailPage'
 import { QueuePage } from '@/pages/QueuePage'
+import { HistoryPage } from '@/pages/HistoryPage'
 
 function App() {
   return (
@@ -24,7 +25,7 @@ function App() {
             <Route path="/channel/:slug" element={<ChannelPage />} />
             <Route path="/article/:slug/:id" element={<ArticleDetailPage />} />
             <Route path="/queue" element={<QueuePage />} />
-            <Route path="/history" element={<div>백업 이력 (TODO)</div>} />
+            <Route path="/history" element={<HistoryPage />} />
           </Routes>
         </main>
       </div>
