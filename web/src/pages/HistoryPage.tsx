@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -35,10 +35,6 @@ export function HistoryPage() {
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [downloads, setDownloads] = useState<DownloadItem[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
-
-  const refreshHistory = useCallback(() => {
-    backupApi.getHistory(filter).then(setItems)
-  }, [filter])
 
   useEffect(() => {
     setLoading(true)
