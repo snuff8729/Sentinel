@@ -5,7 +5,7 @@ from app.db.models import Article, Download
 from app.db.repository import (
     create_article, get_article, update_article_status,
     create_download, get_downloads_for_article, update_download_status,
-    is_article_completed,
+    is_article_completed, get_articles_by_status,
 )
 
 def _session(tmp_path):
@@ -68,3 +68,23 @@ def test_is_article_completed(tmp_path):
         assert is_article_completed(session, 100) is False
         update_article_status(session, 100, "completed")
         assert is_article_completed(session, 100) is True
+
+def test_get_articles_by_status(tmp_path):
+    with _session(tmp_path) as session:
+        create_article(session, id=1, channel_slug="t", title="done1", author="a",
+            created_at=datetime(2026, 1, 1, tzinfo=timezone.utc), url="https://arca.live/b/t/1")
+        create_article(session, id=2, channel_slug="t", title="done2", author="a",
+            created_at=datetime(2026, 1, 2, tzinfo=timezone.utc), url="https://arca.live/b/t/2")
+        create_article(session, id=3, channel_slug="t", title="fail", author="a",
+            created_at=datetime(2026, 1, 3, tzinfo=timezone.utc), url="https://arca.live/b/t/3")
+        update_article_status(session, 1, "completed")
+        update_article_status(session, 2, "completed")
+        update_article_status(session, 3, "failed", error="timeout")
+
+        completed = get_articles_by_status(session, "completed")
+        assert len(completed) == 2
+        failed = get_articles_by_status(session, "failed")
+        assert len(failed) == 1
+        assert failed[0].backup_error == "timeout"
+        all_arts = get_articles_by_status(session)
+        assert len(all_arts) == 3

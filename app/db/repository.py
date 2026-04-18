@@ -39,6 +39,13 @@ def create_download(session: Session, *, article_id: int, url: str, local_path: 
     session.refresh(download)
     return download
 
+def get_articles_by_status(session: Session, status: str | None = None) -> list[Article]:
+    if status:
+        statement = select(Article).where(Article.backup_status == status).order_by(Article.id.desc())
+    else:
+        statement = select(Article).order_by(Article.id.desc())
+    return list(session.exec(statement).all())
+
 def get_downloads_for_article(session: Session, article_id: int) -> list[Download]:
     statement = select(Download).where(Download.article_id == article_id)
     return list(session.exec(statement).all())

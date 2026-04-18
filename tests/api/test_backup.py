@@ -18,7 +18,7 @@ def client():
     worker = BackupWorker(service=service, event_bus=event_bus)
 
     test_app = FastAPI()
-    router = create_backup_router(worker, event_bus)
+    router = create_backup_router(worker, event_bus, engine=None)
     test_app.include_router(router, prefix="/api/backup")
     return TestClient(test_app)
 

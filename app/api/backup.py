@@ -10,7 +10,7 @@ from app.backup.events import EventBus
 from app.backup.worker import BackupWorker
 
 
-def create_backup_router(worker: BackupWorker, event_bus: EventBus) -> APIRouter:
+def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None) -> APIRouter:
     router = APIRouter()
 
     @router.post("/pause")
@@ -26,6 +26,27 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus) -> APIRouter
     @router.get("/queue")
     async def get_queue():
         return worker.get_status()
+
+    @router.get("/history")
+    async def get_history(status: str | None = None):
+        from app.db.engine import get_session
+        from app.db.repository import get_articles_by_status
+        _engine = engine or worker._service._engine
+        with get_session(_engine) as session:
+            articles = get_articles_by_status(session, status)
+            return [
+                {
+                    "id": a.id,
+                    "channel_slug": a.channel_slug,
+                    "title": a.title,
+                    "author": a.author,
+                    "category": a.category,
+                    "backup_status": a.backup_status,
+                    "backup_error": a.backup_error,
+                    "backed_up_at": a.backed_up_at.isoformat() if a.backed_up_at else None,
+                }
+                for a in articles
+            ]
 
     @router.get("/events")
     async def backup_events():
