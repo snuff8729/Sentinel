@@ -1,12 +1,12 @@
 import asyncio
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from sqlmodel import Session
 
+from app.backup.events import EventBus
 from app.backup.service import BackupService
 from app.db.engine import create_engine_and_tables
-from app.db.models import Article, Download
 from app.db.repository import get_article, get_downloads_for_article
 
 
@@ -27,7 +27,7 @@ SAMPLE_HTML = '''
 <div class="article-body">
     <div class="article-content">
         <img src="//ac-p3.namu.la/20260418sac/abc123.png?expires=1&key=x" width="800">
-        <img class="arca-emoticon" data-id="9999" src="//ac-p3.namu.la/emote.png?expires=1&key=x" width="100">
+        <img class="arca-emoticon" data-store-id="9999" src="//ac-p3.namu.la/emote.png?expires=1&key=x" width="100">
     </div>
 </div>
 </html>
@@ -45,13 +45,14 @@ def _setup(tmp_path):
     mock_resp.content = b"fake image bytes"
     mock_client.get.return_value = mock_resp
 
+    event_bus = EventBus()
     service = BackupService(engine=engine, client=mock_client, data_dir=str(data_dir))
-    return engine, service, data_dir
+    return engine, service, data_dir, event_bus
 
 
 def test_backup_creates_article_record(tmp_path):
-    engine, service, data_dir = _setup(tmp_path)
-    asyncio.run(service.backup_article(article_id=100, channel_slug="test"))
+    engine, service, data_dir, event_bus = _setup(tmp_path)
+    asyncio.run(service.backup_article(article_id=100, channel_slug="test", event_bus=event_bus))
     with Session(engine) as session:
         art = get_article(session, 100)
         assert art is not None
@@ -61,19 +62,19 @@ def test_backup_creates_article_record(tmp_path):
 
 
 def test_backup_downloads_media(tmp_path):
-    engine, service, data_dir = _setup(tmp_path)
-    asyncio.run(service.backup_article(article_id=100, channel_slug="test"))
+    engine, service, data_dir, event_bus = _setup(tmp_path)
+    asyncio.run(service.backup_article(article_id=100, channel_slug="test", event_bus=event_bus))
     with Session(engine) as session:
         downloads = get_downloads_for_article(session, 100)
-        assert len(downloads) == 2  # 1 image + 1 emoticon
+        assert len(downloads) == 2
         statuses = {d.status for d in downloads}
         assert statuses == {"completed"}
     engine.dispose()
 
 
 def test_backup_creates_html_file(tmp_path):
-    engine, service, data_dir = _setup(tmp_path)
-    asyncio.run(service.backup_article(article_id=100, channel_slug="test"))
+    engine, service, data_dir, event_bus = _setup(tmp_path)
+    asyncio.run(service.backup_article(article_id=100, channel_slug="test", event_bus=event_bus))
     backup_html = data_dir / "articles" / "100" / "backup.html"
     assert backup_html.exists()
     content = backup_html.read_text()
@@ -82,20 +83,48 @@ def test_backup_creates_html_file(tmp_path):
 
 
 def test_backup_skips_completed(tmp_path):
-    engine, service, data_dir = _setup(tmp_path)
-    asyncio.run(service.backup_article(article_id=100, channel_slug="test"))
+    engine, service, data_dir, event_bus = _setup(tmp_path)
+    asyncio.run(service.backup_article(article_id=100, channel_slug="test", event_bus=event_bus))
     call_count_before = service._client.get.call_count
-    asyncio.run(service.backup_article(article_id=100, channel_slug="test"))
-    call_count_after = service._client.get.call_count
-    assert call_count_after == call_count_before
+    asyncio.run(service.backup_article(article_id=100, channel_slug="test", event_bus=event_bus))
+    assert service._client.get.call_count == call_count_before
     engine.dispose()
 
 
 def test_backup_force_redownload(tmp_path):
-    engine, service, data_dir = _setup(tmp_path)
-    asyncio.run(service.backup_article(article_id=100, channel_slug="test"))
+    engine, service, data_dir, event_bus = _setup(tmp_path)
+    asyncio.run(service.backup_article(article_id=100, channel_slug="test", event_bus=event_bus))
     call_count_before = service._client.get.call_count
-    asyncio.run(service.backup_article(article_id=100, channel_slug="test", force=True))
-    call_count_after = service._client.get.call_count
-    assert call_count_after > call_count_before
+    asyncio.run(service.backup_article(article_id=100, channel_slug="test", force=True, event_bus=event_bus))
+    assert service._client.get.call_count > call_count_before
+    engine.dispose()
+
+
+def test_backup_emits_events(tmp_path):
+    engine, service, data_dir, event_bus = _setup(tmp_path)
+    events = []
+    async def run():
+        q = event_bus.subscribe()
+        await service.backup_article(article_id=100, channel_slug="test", event_bus=event_bus)
+        while not q.empty():
+            events.append(await q.get())
+    asyncio.run(run())
+    types = [e.type for e in events]
+    assert "article_started" in types
+    assert "file_completed" in types
+    assert "article_completed" in types
+    engine.dispose()
+
+
+def test_backup_cancel_stops_processing(tmp_path):
+    engine, service, data_dir, event_bus = _setup(tmp_path)
+    cancelled = True
+    asyncio.run(service.backup_article(
+        article_id=100, channel_slug="test",
+        event_bus=event_bus,
+        cancel_check=lambda: cancelled,
+    ))
+    with Session(engine) as session:
+        art = get_article(session, 100)
+        assert art.backup_status == "cancelled"
     engine.dispose()
