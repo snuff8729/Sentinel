@@ -198,8 +198,10 @@ def parse_article_detail(html: str, article_id: int) -> ArticleDetail:
     content_html = content_el.decode_contents() if content_el else ""
 
     attachments: list[Attachment] = []
-    if content_el:
-        for img in content_el.select("img"):
+    article_body = soup.select_one(".article-body")
+    search_el = article_body if article_body else content_el
+    if search_el:
+        for img in search_el.select("img"):
             src = img.get("src", "")
             if not src:
                 continue
@@ -207,7 +209,7 @@ def parse_article_detail(html: str, article_id: int) -> ArticleDetail:
                 continue
             url = f"https:{src}" if src.startswith("//") else src
             attachments.append(Attachment(url=url, media_type="image"))
-        for vid in content_el.select("video source, video"):
+        for vid in search_el.select("video source, video"):
             src = vid.get("src", "")
             if not src:
                 continue
