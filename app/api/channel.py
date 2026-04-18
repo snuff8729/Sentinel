@@ -10,6 +10,12 @@ from app.scraper.arca.channel import ArcaChannel
 def create_channel_router(client) -> APIRouter:
     router = APIRouter()
 
+    @router.get("/{slug}/info")
+    async def get_info(slug: str):
+        channel = ArcaChannel(client, slug)
+        info = await asyncio.to_thread(channel.get_info)
+        return info.model_dump()
+
     @router.get("/{slug}/categories")
     async def get_categories(slug: str):
         channel = ArcaChannel(client, slug)

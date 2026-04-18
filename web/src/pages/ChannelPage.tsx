@@ -11,12 +11,14 @@ import {
 } from '@/components/ui/select'
 import { ArticleList } from '@/components/ArticleList'
 import { channelApi, backupApi } from '@/api/client'
-import type { ArticleList as ArticleListType, Category } from '@/api/types'
+import type { ArticleList as ArticleListType, Category, ChannelInfo } from '@/api/types'
+import { addRecentChannel } from '@/lib/recentChannels'
 
 export function ChannelPage() {
   const { slug } = useParams<{ slug: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
 
+  const [channelInfo, setChannelInfo] = useState<ChannelInfo | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [data, setData] = useState<ArticleListType | null>(null)
   const [selected, setSelected] = useState<Set<number>>(new Set())
@@ -39,6 +41,10 @@ export function ChannelPage() {
 
   useEffect(() => {
     if (!slug) return
+    channelApi.getInfo(slug).then(info => {
+      setChannelInfo(info)
+      addRecentChannel(slug, info.name, info.icon_url ?? undefined)
+    })
     channelApi.getCategories(slug).then(setCategories)
   }, [slug])
 
@@ -108,7 +114,12 @@ export function ChannelPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">/b/{slug}</h1>
+      <div className="flex items-center gap-3">
+        {channelInfo?.icon_url && (
+          <img src={channelInfo.icon_url} alt="" className="w-8 h-8 rounded" referrerPolicy="no-referrer" />
+        )}
+        <h1 className="text-2xl font-bold">{channelInfo?.name ?? slug}</h1>
+      </div>
 
       <div className="flex flex-wrap gap-1">
         <Button

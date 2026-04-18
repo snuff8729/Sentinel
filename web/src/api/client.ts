@@ -3,6 +3,7 @@ import type {
   ArticleList,
   BackupHistoryItem,
   Category,
+  ChannelInfo,
   Comment,
   QueueStatus,
 } from './types'
@@ -28,6 +29,9 @@ async function del<T>(path: string): Promise<T> {
 }
 
 export const channelApi = {
+  getInfo: (slug: string) =>
+    get<ChannelInfo>(`/channel/${slug}/info`),
+
   getCategories: (slug: string) =>
     get<Category[]>(`/channel/${slug}/categories`),
 

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from app.scraper.arca.models import ArticleDetail, ArticleList, Category, Comment
+from app.scraper.arca.models import ArticleDetail, ArticleList, Category, ChannelInfo, Comment
 from app.scraper.arca.parser import (
     parse_article_detail,
     parse_article_list,
     parse_categories,
+    parse_channel_info,
     parse_comments,
     parse_pagination,
 )
@@ -20,6 +21,10 @@ class ArcaChannel:
     @property
     def base_path(self) -> str:
         return f"/b/{self._slug}"
+
+    def get_info(self) -> ChannelInfo:
+        resp = self._client.get(self.base_path, params={})
+        return parse_channel_info(resp.text, self._slug)
 
     def get_categories(self) -> list[Category]:
         resp = self._client.get(self.base_path, params={})

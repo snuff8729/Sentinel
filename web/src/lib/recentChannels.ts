@@ -3,6 +3,8 @@ const MAX_RECENT = 10
 
 export interface RecentChannel {
   slug: string
+  name?: string
+  iconUrl?: string
   visitedAt: string
 }
 
@@ -16,8 +18,8 @@ export function getRecentChannels(): RecentChannel[] {
   }
 }
 
-export function addRecentChannel(slug: string): void {
+export function addRecentChannel(slug: string, name?: string, iconUrl?: string): void {
   const channels = getRecentChannels().filter(c => c.slug !== slug)
-  channels.unshift({ slug, visitedAt: new Date().toISOString() })
+  channels.unshift({ slug, name, iconUrl, visitedAt: new Date().toISOString() })
   localStorage.setItem(STORAGE_KEY, JSON.stringify(channels.slice(0, MAX_RECENT)))
 }

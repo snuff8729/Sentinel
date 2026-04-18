@@ -1,3 +1,9 @@
+export interface ChannelInfo {
+  slug: string
+  name: string
+  icon_url: string | null
+}
+
 export interface Category {
   name: string
   slug: string

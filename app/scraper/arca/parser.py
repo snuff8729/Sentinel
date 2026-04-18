@@ -11,6 +11,7 @@ from app.scraper.arca.models import (
     ArticleRow,
     Attachment,
     Category,
+    ChannelInfo,
     Comment,
 )
 
@@ -93,6 +94,18 @@ def _parse_article_row(row: Tag) -> ArticleRow | None:
 # ---------------------------------------------------------------------------
 # 카테고리 탭
 # ---------------------------------------------------------------------------
+
+def parse_channel_info(html: str, slug: str) -> ChannelInfo:
+    soup = BeautifulSoup(html, "lxml")
+    name_el = soup.select_one(".board-title a.title")
+    name = name_el.get("data-channel-name", slug) if name_el else slug
+    icon_el = soup.select_one("img.channel-icon")
+    icon_url = None
+    if icon_el:
+        src = icon_el.get("src", "")
+        icon_url = f"https:{src}" if src.startswith("//") else src
+    return ChannelInfo(slug=slug, name=name, icon_url=icon_url)
+
 
 def parse_categories(html: str) -> list[Category]:
     soup = BeautifulSoup(html, "lxml")

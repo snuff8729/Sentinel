@@ -14,9 +14,12 @@ export function RecentChannels() {
           <Link
             key={c.slug}
             to={`/channel/${c.slug}`}
-            className="px-3 py-1.5 border rounded-md text-sm hover:bg-muted transition-colors"
+            className="flex items-center gap-2 px-3 py-2 border rounded-md text-sm hover:bg-muted transition-colors"
           >
-            {c.slug}
+            {c.iconUrl && (
+              <img src={c.iconUrl} alt="" className="w-5 h-5 rounded" referrerPolicy="no-referrer" />
+            )}
+            <span>{c.name ?? c.slug}</span>
           </Link>
         ))}
       </div>

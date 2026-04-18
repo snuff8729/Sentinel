@@ -5,6 +5,12 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class ChannelInfo(BaseModel):
+    slug: str
+    name: str
+    icon_url: str | None
+
+
 class Category(BaseModel):
     name: str
     slug: str
