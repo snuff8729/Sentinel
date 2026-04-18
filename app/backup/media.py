@@ -23,6 +23,8 @@ def extract_media_from_html(html: str, article_id: int) -> list[MediaItem]:
         src = img.get("src", "")
         if not src:
             continue
+        if _is_skip_url(src):
+            continue
         url = _normalize_url(src)
         url_key = _url_path_key(url)
         if url_key in seen_urls:
@@ -95,6 +97,15 @@ def _normalize_url(src: str) -> str:
     if src.startswith("//"):
         return f"https:{src}"
     return src
+
+SKIP_PATTERNS = {"blocked.png", "deleted.png", "noimage.png"}
+
+
+def _is_skip_url(src: str) -> bool:
+    path = urlparse(src).path
+    filename = PurePosixPath(path).name
+    return filename in SKIP_PATTERNS
+
 
 def _get_ext(url: str) -> str:
     return PurePosixPath(urlparse(url).path).suffix
