@@ -1,0 +1,16 @@
+[project]
+name = "sentinel"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "beautifulsoup4>=4.14.3",
+    "curl-cffi>=0.15.0",
+    "fastapi>=0.136.0",
+    "lxml>=6.1.0",
+    "uvicorn[standard]>=0.44.0",
+]
+
+[project.scripts]
+dev = "uvicorn app.main:app --reload"
