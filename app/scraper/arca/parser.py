@@ -204,11 +204,13 @@ def parse_article_detail(html: str, article_id: int) -> ArticleDetail:
 
     content_el = soup.select_one(".article-body .article-content")
     if content_el:
-        # protocol-relative URL을 https로 변환
+        # protocol-relative URL을 https로 변환 + referrer policy 추가
         for tag in content_el.select("[src]"):
             src = tag.get("src", "")
             if src.startswith("//"):
                 tag["src"] = f"https:{src}"
+            if tag.name in ("img", "video", "audio"):
+                tag["referrerpolicy"] = "no-referrer"
         content_html = content_el.decode_contents()
     else:
         content_html = ""
