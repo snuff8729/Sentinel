@@ -60,7 +60,15 @@ class DownloadQueue:
                 return key
         return domain
 
-    async def submit(self, url: str, dest: str, download_fn: Callable[[str, str], Awaitable[None]]) -> None:
+    async def submit(
+        self,
+        url: str,
+        dest: str,
+        download_fn: Callable[[str, str], Awaitable[None]],
+        *,
+        pause_event: asyncio.Event | None = None,
+        cancel_check: Callable[[], bool] | None = None,
+    ) -> None:
         domain = urlparse(url).netloc
         domain_key = self._domain_key(domain)
         config = self.get_domain_config(domain)
@@ -68,6 +76,10 @@ class DownloadQueue:
 
         async def _run():
             async with sem:
+                if cancel_check and cancel_check():
+                    return
+                if pause_event is not None:
+                    await pause_event.wait()
                 async with self._lock:
                     last = self._last_request[domain_key]
                     now = time.monotonic()
@@ -78,10 +90,13 @@ class DownloadQueue:
                         self._last_request[domain_key] = now
                 if wait > 0:
                     await asyncio.sleep(wait)
+                if cancel_check and cancel_check():
+                    return
                 await download_fn(url, dest)
 
         task = asyncio.create_task(_run())
         self._tasks.append(task)
+        await asyncio.sleep(0)
 
     async def wait_all(self) -> None:
         if self._tasks:

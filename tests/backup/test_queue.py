@@ -74,3 +74,37 @@ def test_download_concurrency_limit():
         await q.wait_all()
     asyncio.run(run())
     assert max_concurrent <= 2
+
+def test_download_pauses_and_resumes():
+    pause_event = asyncio.Event()
+    pause_event.set()
+    q = DownloadQueue(domain_overrides={"ac-p3.namu.la": DomainConfig(concurrency=1, delay=0.0)})
+    order = []
+    async def tracked_download(url: str, dest: str):
+        order.append(url)
+    async def run():
+        await q.submit("https://ac-p3.namu.la/1.png", "/tmp/1.png", tracked_download, pause_event=pause_event)
+        pause_event.clear()
+        await q.submit("https://ac-p3.namu.la/2.png", "/tmp/2.png", tracked_download, pause_event=pause_event)
+        await asyncio.sleep(0.2)
+        assert len(order) == 1
+        pause_event.set()
+        await q.wait_all()
+        assert len(order) == 2
+    asyncio.run(run())
+
+def test_download_cancels():
+    q = DownloadQueue(domain_overrides={"ac-p3.namu.la": DomainConfig(concurrency=1, delay=0.0)})
+    order = []
+    cancelled = False
+    async def tracked_download(url: str, dest: str):
+        order.append(url)
+    async def run():
+        nonlocal cancelled
+        cancel_check = lambda: cancelled
+        await q.submit("https://ac-p3.namu.la/1.png", "/tmp/1.png", tracked_download, cancel_check=cancel_check)
+        cancelled = True
+        await q.submit("https://ac-p3.namu.la/2.png", "/tmp/2.png", tracked_download, cancel_check=cancel_check)
+        await q.wait_all()
+        assert len(order) == 1
+    asyncio.run(run())
