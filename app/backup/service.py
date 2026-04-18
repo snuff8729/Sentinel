@@ -229,6 +229,13 @@ class BackupService:
             item = next(m for m in media if m.url == url)
             if item.warning:
                 logger.warning("[%d] ⚠ %s: %s", article_id, dest.name, item.warning)
+                completed_so_far += 1
+                with get_session(self._engine) as session:
+                    for dl in get_downloads_for_article(session, article_id):
+                        if dl.url == url:
+                            update_download_status(session, dl.id, "completed")
+                            break
+                return
             try:
                 file_resp = await asyncio.to_thread(self._client.get, url)
                 dest.write_bytes(file_resp.content)
