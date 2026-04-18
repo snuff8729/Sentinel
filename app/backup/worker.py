@@ -67,6 +67,22 @@ class BackupWorker:
         }
 
     async def run(self) -> None:
+        # Startup recovery: reset in_progress articles to pending
+        from app.db.engine import get_session
+        from app.db.models import Article
+        from sqlmodel import select
+
+        engine = self._service._engine
+        with get_session(engine) as session:
+            stmt = select(Article).where(Article.backup_status == "in_progress")
+            stuck = session.exec(stmt).all()
+            for art in stuck:
+                art.backup_status = "pending"
+                session.add(art)
+            if stuck:
+                session.commit()
+                logger.info("Recovered %d stuck articles to pending", len(stuck))
+
         logger.info("BackupWorker started")
         while True:
             req = await self._queue.get()
