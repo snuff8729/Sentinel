@@ -29,7 +29,10 @@ def extract_media_from_html(html: str, article_id: int) -> list[MediaItem]:
             continue
         seen_urls.add(url_key)
         if "arca-emoticon" in img.get("class", []):
-            data_id = img.get("data-id", "")
+            data_id = img.get("data-store-id", "") or img.get("data-id", "")
+            if not data_id:
+                # fallback: URL의 파일명 해시를 ID로 사용
+                data_id = PurePosixPath(urlparse(url).path).stem
             ext = _get_ext(url)
             local_path = f"emoticons/{data_id}{ext}"
             relative_path = f"../../emoticons/{data_id}{ext}"
