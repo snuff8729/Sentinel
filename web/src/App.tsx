@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
 import { ChannelInput } from '@/components/ChannelInput'
 import { ChannelPage } from '@/pages/ChannelPage'
 import { ArticleDetailPage } from '@/pages/ArticleDetailPage'
+import { QueuePage } from '@/pages/QueuePage'
 
 function App() {
   return (
@@ -22,7 +23,7 @@ function App() {
             } />
             <Route path="/channel/:slug" element={<ChannelPage />} />
             <Route path="/article/:slug/:id" element={<ArticleDetailPage />} />
-            <Route path="/queue" element={<div>다운로드 큐 (TODO)</div>} />
+            <Route path="/queue" element={<QueuePage />} />
             <Route path="/history" element={<div>백업 이력 (TODO)</div>} />
           </Routes>
         </main>
