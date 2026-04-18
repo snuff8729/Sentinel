@@ -133,16 +133,16 @@ export function HistoryPage() {
                   className="flex items-start gap-3 px-3 py-2.5 hover:bg-muted/30 cursor-pointer"
                   onClick={() => handleToggleDetail(item.id)}
                 >
+                  <span className="text-muted-foreground text-xs pt-1.5">
+                    {isExpanded ? '▼' : '▶'}
+                  </span>
                   <div className="flex-1 min-w-0">
-                    {/* 윗줄: 상태 + 제목 + 에러 */}
+                    {/* 윗줄: 상태 + 제목 */}
                     <div className="leading-snug">
                       <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle ${badgeInfo.className}`}>
                         {badgeInfo.label}
                       </span>
                       <span className="align-middle">{item.title}</span>
-                      <span className="text-muted-foreground text-xs ml-1 align-middle">
-                        {isExpanded ? '▼' : '▶'}
-                      </span>
                     </div>
                     {item.backup_error && (
                       <div className="text-xs text-destructive mt-0.5">{item.backup_error}</div>
@@ -163,17 +163,13 @@ export function HistoryPage() {
                           ? new Date(item.backed_up_at).toLocaleString('ko-KR')
                           : '—'}
                       </span>
-                      {item.backup_status === 'failed' && (
-                        <>
-                          <span>·</span>
-                          <button
-                            className="text-blue-500 hover:underline"
-                            onClick={(e) => handleRetry(e, item)}
-                          >
-                            재시도
-                          </button>
-                        </>
-                      )}
+                      <span>·</span>
+                      <button
+                        className="text-blue-500 hover:underline"
+                        onClick={(e) => handleRetry(e, item)}
+                      >
+                        재시도
+                      </button>
                     </div>
                   </div>
                 </div>
