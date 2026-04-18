@@ -101,12 +101,12 @@ export function ChannelPage() {
         >
           전체
         </Button>
-        {categories.map(c => (
+        {categories.filter(c => c.slug).map(c => (
           <Button
             key={c.slug}
             variant={category === c.slug ? 'default' : 'ghost'}
             size="sm"
-            onClick={() => updateParams({ category: c.slug || undefined })}
+            onClick={() => updateParams({ category: c.slug })}
           >
             {c.name}
           </Button>

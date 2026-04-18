@@ -19,6 +19,7 @@ def test_category():
 def test_article_row():
     row = ArticleRow(
         id=599677,
+        num=1234,
         title="테스트 게시글",
         category="일반",
         comment_count=5,

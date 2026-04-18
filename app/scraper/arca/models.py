@@ -11,7 +11,8 @@ class Category(BaseModel):
 
 
 class ArticleRow(BaseModel):
-    id: int
+    id: int          # 글로벌 게시글 ID (href에서 추출)
+    num: int         # 채널 내 게시글 번호 (.col-id)
     title: str
     category: str | None
     comment_count: int

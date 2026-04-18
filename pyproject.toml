@@ -11,6 +11,7 @@ dependencies = [
     "lxml>=6.1.0",
     "python-dotenv>=1.2.2",
     "sqlmodel>=0.0.38",
+    "sse-starlette>=3.3.4",
     "uvicorn[standard]>=0.44.0",
 ]
 
@@ -19,5 +20,6 @@ dev = "uvicorn app.main:app --reload"
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "pytest>=9.0.3",
 ]

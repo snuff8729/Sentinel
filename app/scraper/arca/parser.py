@@ -38,9 +38,16 @@ def _parse_article_row(row: Tag) -> ArticleRow | None:
     if not id_el:
         return None
     try:
-        article_id = int(id_el.get_text(strip=True))
+        num = int(id_el.get_text(strip=True))
     except ValueError:
         return None
+
+    # 글로벌 ID를 href에서 추출: /b/{slug}/{global_id}?...
+    href = row.get("href", "")
+    global_id_match = re.search(r"/b/[^/]+/(\d+)", href)
+    if not global_id_match:
+        return None
+    article_id = int(global_id_match.group(1))
 
     title_el = row.select_one(".col-title .title")
     title = _get_text_with_twemoji(title_el) if title_el else ""
@@ -76,6 +83,7 @@ def _parse_article_row(row: Tag) -> ArticleRow | None:
 
     return ArticleRow(
         id=article_id,
+        num=num,
         title=title,
         category=category,
         comment_count=comment_count,
