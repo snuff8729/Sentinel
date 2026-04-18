@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -10,7 +10,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { backupApi } from '@/api/client'
-import type { BackupHistoryItem, DownloadItem } from '@/api/types'
+import { useSSE } from '@/hooks/useSSE'
+import type { BackupHistoryItem, DownloadItem, SSEArticleStarted, SSEArticleCompleted } from '@/api/types'
 
 const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   completed: { label: '완료', variant: 'default' },
@@ -35,12 +36,62 @@ export function HistoryPage() {
   const [downloads, setDownloads] = useState<DownloadItem[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
 
+  const refreshHistory = useCallback(() => {
+    backupApi.getHistory(filter).then(setItems)
+  }, [filter])
+
   useEffect(() => {
     setLoading(true)
     backupApi.getHistory(filter)
       .then(setItems)
       .finally(() => setLoading(false))
   }, [filter])
+
+  // SSE로 실시간 업데이트
+  useSSE('/api/backup/events', {
+    queue_updated: () => {},
+    article_started: (data: unknown) => {
+      const d = data as SSEArticleStarted
+      // 이력에 in_progress 항목 추가/업데이트
+      setItems(prev => {
+        const exists = prev.some(item => item.id === d.article_id)
+        if (exists) {
+          return prev.map(item =>
+            item.id === d.article_id
+              ? { ...item, backup_status: 'in_progress', backup_error: null }
+              : item
+          )
+        }
+        return [{
+          id: d.article_id,
+          channel_slug: '',
+          title: d.title,
+          author: '',
+          category: null,
+          backup_status: 'in_progress',
+          backup_error: null,
+          backed_up_at: null,
+        }, ...prev]
+      })
+    },
+    article_completed: (data: unknown) => {
+      const d = data as SSEArticleCompleted
+      const status = d.fail_count > 0 ? 'failed' : 'completed'
+      setItems(prev =>
+        prev.map(item =>
+          item.id === d.article_id
+            ? { ...item, backup_status: status, backed_up_at: new Date().toISOString() }
+            : item
+        )
+      )
+      // 상세가 열려있으면 다운로드 목록도 갱신
+      if (expandedId === d.article_id) {
+        backupApi.getDetail(d.article_id).then(detail => setDownloads(detail.downloads))
+      }
+    },
+    worker_paused: () => {},
+    worker_resumed: () => {},
+  })
 
   const handleToggleDetail = async (articleId: number) => {
     if (expandedId === articleId) {
