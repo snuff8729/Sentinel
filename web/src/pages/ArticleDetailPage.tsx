@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { CommentList } from '@/components/CommentList'
 import { articleApi, backupApi } from '@/api/client'
 import type { ArticleDetail, Comment } from '@/api/types'
+import '@/styles/article-content.css'
 
 export function ArticleDetailPage() {
   const { slug, id } = useParams<{ slug: string; id: string }>()
@@ -36,6 +37,7 @@ export function ArticleDetailPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      {/* 헤더 */}
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           {detail.category && <Badge variant="secondary">{detail.category}</Badge>}
@@ -52,11 +54,13 @@ export function ArticleDetailPage() {
 
       <Button onClick={handleBackup}>이 글 백업</Button>
 
+      {/* 본문 */}
       <div
-        className="prose prose-sm max-w-none border-t pt-4"
+        className="arca-article-content border-t pt-4"
         dangerouslySetInnerHTML={{ __html: detail.content_html }}
       />
 
+      {/* 댓글 */}
       <div className="border-t pt-4">
         <CommentList comments={comments} />
       </div>

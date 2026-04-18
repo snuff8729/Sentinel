@@ -1,0 +1,107 @@
+/* arca.live 게시글 본문 + 댓글 콘텐츠 스타일 */
+
+.arca-article-content {
+  font-size: 14px;
+  line-height: 1.8;
+  word-break: break-word;
+  color: var(--foreground, #1a1a1a);
+}
+
+/* 이미지 */
+.arca-article-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 4px 0;
+  display: inline-block;
+}
+
+/* 아카콘 (인라인) */
+.arca-article-content img.emoticon,
+.arca-article-content img.arca-emoticon {
+  display: inline;
+  width: auto;
+  height: 100px;
+  max-height: 100px;
+  vertical-align: middle;
+  margin: 0 2px;
+  border-radius: 0;
+}
+
+.arca-article-content .emoticon-wrapper,
+.arca-article-content .combo_emoticon-wrapper {
+  display: inline-block;
+}
+
+/* 비디오 */
+.arca-article-content video {
+  max-width: 100%;
+  border-radius: 4px;
+  margin: 8px 0;
+}
+
+/* 오디오 */
+.arca-article-content audio {
+  width: 100%;
+  margin: 8px 0;
+}
+
+/* 텍스트 */
+.arca-article-content pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  margin: 0;
+}
+
+.arca-article-content p {
+  margin: 4px 0;
+}
+
+/* 링크 */
+.arca-article-content a {
+  color: #2563eb;
+  text-decoration: none;
+}
+.arca-article-content a:hover {
+  text-decoration: underline;
+}
+
+/* 구분선 */
+.arca-article-content hr {
+  border: none;
+  border-top: 1px solid var(--border, #e5e7eb);
+  margin: 16px 0;
+}
+
+/* 인용 */
+.arca-article-content blockquote {
+  border-left: 3px solid var(--border, #e5e7eb);
+  padding-left: 12px;
+  margin: 8px 0;
+  color: var(--muted-foreground, #6b7280);
+}
+
+/* 코드 */
+.arca-article-content code {
+  background: var(--muted, #f3f4f6);
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+/* twemoji SVG */
+.arca-article-content img.twemoji {
+  display: inline;
+  height: 1.2em;
+  width: auto;
+  vertical-align: middle;
+  margin: 0 1px;
+  border-radius: 0;
+}
+
+/* 숨겨야 할 요소 */
+.arca-article-content .btn-more,
+.arca-article-content .article-write-btns {
+  display: none;
+}

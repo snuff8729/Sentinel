@@ -116,17 +116,31 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
         html = html.replace('./audio/', f'{base_path}/audio/')
         html = html.replace('../../emoticons/', '/data/emoticons/')
 
-        # 기본 CSS 삽입
+        # 기본 CSS 삽입 (프론트엔드 article-content.css와 동일)
         base_css = """<style>
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 16px; line-height: 1.6; color: #1a1a1a; background: #fff; }
-img { max-width: 100%; height: auto; border-radius: 4px; margin: 4px 0; }
-video { max-width: 100%; border-radius: 4px; margin: 4px 0; }
-audio { width: 100%; margin: 4px 0; }
-pre { white-space: pre-wrap; word-break: break-word; }
-.emoticon, .arca-emoticon { display: inline; width: auto; height: 1.5em; vertical-align: middle; margin: 0 2px; }
-.combo_emoticon-wrapper { display: inline-block; }
-a { color: #2563eb; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  max-width: 800px; margin: 0 auto; padding: 16px;
+  font-size: 14px; line-height: 1.8; word-break: break-word;
+  color: #1a1a1a; background: #fff;
+}
+img { max-width: 100%; height: auto; border-radius: 4px; margin: 4px 0; display: inline-block; }
+img.emoticon, img.arca-emoticon {
+  display: inline; width: auto; height: 100px; max-height: 100px;
+  vertical-align: middle; margin: 0 2px; border-radius: 0;
+}
+.emoticon-wrapper, .combo_emoticon-wrapper { display: inline-block; }
+video { max-width: 100%; border-radius: 4px; margin: 8px 0; }
+audio { width: 100%; margin: 8px 0; }
+pre { white-space: pre-wrap; word-break: break-word; font-family: inherit; margin: 0; }
+p { margin: 4px 0; }
+a { color: #2563eb; text-decoration: none; }
+a:hover { text-decoration: underline; }
 hr { border: none; border-top: 1px solid #e5e7eb; margin: 16px 0; }
+blockquote { border-left: 3px solid #e5e7eb; padding-left: 12px; margin: 8px 0; color: #6b7280; }
+code { background: #f3f4f6; padding: 2px 4px; border-radius: 3px; font-size: 0.9em; }
+img.twemoji { display: inline; height: 1.2em; width: auto; vertical-align: middle; margin: 0 1px; border-radius: 0; }
+.btn-more, .article-write-btns { display: none; }
 </style>"""
         html = html.replace('<head>', f'<head>{base_css}', 1)
         if '<head>' not in html:

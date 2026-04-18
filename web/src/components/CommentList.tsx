@@ -1,8 +1,9 @@
 import type { Comment } from '@/api/types'
+import '@/styles/article-content.css'
 
 function CommentItem({ comment, isReply = false }: { comment: Comment; isReply?: boolean }) {
   return (
-    <div className={`py-3 ${isReply ? 'ml-8 border-l-2 pl-4' : 'border-b'}`}>
+    <div className={`py-3 ${isReply ? 'ml-8 border-l-2 border-muted pl-4' : 'border-b'}`}>
       <div className="flex items-center gap-2 mb-1">
         <span className="font-medium text-sm">{comment.author}</span>
         <span className="text-xs text-muted-foreground">
@@ -10,7 +11,7 @@ function CommentItem({ comment, isReply = false }: { comment: Comment; isReply?:
         </span>
       </div>
       <div
-        className="text-sm prose prose-sm max-w-none"
+        className="arca-article-content"
         dangerouslySetInnerHTML={{ __html: comment.content_html }}
       />
       {comment.replies.map(reply => (
