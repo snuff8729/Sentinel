@@ -104,7 +104,7 @@ export function HistoryPage() {
 
       {/* 필터 */}
       <div className="flex gap-2">
-        {[undefined, 'completed', 'failed', 'cancelled'].map(status => (
+        {[undefined, 'completed', 'failed', 'cancelled', 'pending', 'in_progress'].map(status => (
           <Button
             key={status ?? 'all'}
             variant={filter === status ? 'default' : 'outline'}
