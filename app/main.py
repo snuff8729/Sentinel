@@ -1,8 +1,11 @@
 import asyncio
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.api.backup import create_backup_router
+from app.api.channel import create_channel_router
 from app.backup.events import EventBus
 from app.backup.service import BackupService
 from app.backup.worker import BackupWorker
@@ -23,15 +26,20 @@ async def startup():
     service = BackupService(engine=engine, client=client)
     worker = BackupWorker(service=service, event_bus=event_bus)
 
-    router = create_backup_router(worker, event_bus)
-    app.include_router(router, prefix="/api/backup")
+    # API routers
+    channel_router = create_channel_router(client)
+    app.include_router(channel_router, prefix="/api/channel")
+    app.include_router(channel_router.article_router, prefix="/api/article")
+
+    backup_router = create_backup_router(worker, event_bus, engine)
+    app.include_router(backup_router, prefix="/api/backup")
 
     asyncio.create_task(worker.run())
 
-
-@app.get("/")
-async def root():
-    return {"message": "Hello from Sentinel"}
+    # Static file serving (React build)
+    dist_dir = Path(__file__).parent.parent / "web" / "dist"
+    if dist_dir.exists():
+        app.mount("/", StaticFiles(directory=str(dist_dir), html=True), name="static")
 
 
 @app.get("/health")
