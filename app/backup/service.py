@@ -14,6 +14,7 @@ from app.db.engine import get_session
 from app.db.repository import (
     create_article,
     create_download,
+    delete_downloads_for_article,
     get_article,
     get_downloads_for_article,
     is_article_completed,
@@ -92,8 +93,7 @@ class BackupService:
 
         with get_session(self._engine) as session:
             if force:
-                for dl in get_downloads_for_article(session, article_id):
-                    update_download_status(session, dl.id, "pending")
+                delete_downloads_for_article(session, article_id)
 
             existing_urls = {d.url for d in get_downloads_for_article(session, article_id)}
             for item in media_items:

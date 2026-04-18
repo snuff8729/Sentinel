@@ -50,6 +50,13 @@ def get_downloads_for_article(session: Session, article_id: int) -> list[Downloa
     statement = select(Download).where(Download.article_id == article_id)
     return list(session.exec(statement).all())
 
+
+def delete_downloads_for_article(session: Session, article_id: int) -> None:
+    downloads = get_downloads_for_article(session, article_id)
+    for dl in downloads:
+        session.delete(dl)
+    session.commit()
+
 def update_download_status(session: Session, download_id: int, status: str, *, error: str | None = None) -> None:
     download = session.get(Download, download_id)
     if download is None:
