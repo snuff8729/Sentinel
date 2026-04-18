@@ -1,0 +1,105 @@
+from __future__ import annotations
+
+import asyncio
+import logging
+from dataclasses import dataclass
+
+from app.backup.events import Event, EventBus
+from app.backup.service import BackupService
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class BackupRequest:
+    article_id: int
+    channel_slug: str
+
+
+class BackupWorker:
+    def __init__(self, service: BackupService, event_bus: EventBus):
+        self._service = service
+        self._event_bus = event_bus
+        self._queue: asyncio.Queue[BackupRequest] = asyncio.Queue()
+        self._pause_event = asyncio.Event()
+        self._pause_event.set()
+        self._cancelled: set[int] = set()
+        self._current: BackupRequest | None = None
+        self._pending: list[BackupRequest] = []
+
+    async def enqueue(self, article_id: int, channel_slug: str) -> int:
+        req = BackupRequest(article_id=article_id, channel_slug=channel_slug)
+        self._pending.append(req)
+        await self._queue.put(req)
+        self._event_bus.publish(Event(type="queue_updated", data=self._queue_snapshot()))
+        return len(self._pending)
+
+    def pause(self) -> None:
+        self._pause_event.clear()
+        logger.info("Worker paused")
+        self._event_bus.publish(Event(type="worker_paused"))
+
+    def resume(self) -> None:
+        self._pause_event.set()
+        logger.info("Worker resumed")
+        self._event_bus.publish(Event(type="worker_resumed"))
+
+    def cancel(self, article_id: int) -> None:
+        self._cancelled.add(article_id)
+        self._pending = [r for r in self._pending if r.article_id != article_id]
+        logger.info("Cancelled article %d", article_id)
+        self._event_bus.publish(Event(type="queue_updated", data=self._queue_snapshot()))
+
+    def get_status(self) -> dict:
+        current = None
+        if self._current:
+            current = {
+                "article_id": self._current.article_id,
+                "channel_slug": self._current.channel_slug,
+            }
+        return {
+            "paused": not self._pause_event.is_set(),
+            "current": current,
+            "pending": [
+                {"article_id": r.article_id, "channel_slug": r.channel_slug}
+                for r in self._pending
+            ],
+        }
+
+    async def run(self) -> None:
+        logger.info("BackupWorker started")
+        while True:
+            req = await self._queue.get()
+            self._pending = [r for r in self._pending if r.article_id != req.article_id]
+
+            if req.article_id in self._cancelled:
+                self._cancelled.discard(req.article_id)
+                self._queue.task_done()
+                continue
+
+            await self._pause_event.wait()
+
+            self._current = req
+            logger.info("Processing article %d", req.article_id)
+
+            try:
+                await self._service.backup_article(
+                    article_id=req.article_id,
+                    channel_slug=req.channel_slug,
+                    pause_event=self._pause_event,
+                    cancel_check=lambda aid=req.article_id: aid in self._cancelled,
+                    event_bus=self._event_bus,
+                )
+            except Exception as e:
+                logger.error("Failed to backup article %d: %s", req.article_id, e)
+
+            self._current = None
+            self._queue.task_done()
+
+    def _queue_snapshot(self) -> dict:
+        return {
+            "queue": [
+                {"article_id": r.article_id, "channel_slug": r.channel_slug}
+                for r in self._pending
+            ],
+        }
