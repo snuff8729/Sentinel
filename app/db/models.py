@@ -14,6 +14,11 @@ class Article(SQLModel, table=True):
     backup_error: str | None = None
     backed_up_at: datetime | None = None
 
+class Setting(SQLModel, table=True):
+    key: str = Field(primary_key=True)
+    value: str
+
+
 class Download(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     article_id: int = Field(foreign_key="article.id")

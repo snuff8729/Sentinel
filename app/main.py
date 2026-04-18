@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.backup import create_backup_router
 from app.api.channel import create_channel_router
+from app.api.settings import create_settings_router
 from app.backup.events import EventBus
 from app.backup.service import BackupService
 from app.backup.worker import BackupWorker
@@ -28,12 +29,15 @@ async def startup():
     worker = BackupWorker(service=service, event_bus=event_bus)
 
     # API routers
-    channel_router = create_channel_router(client)
+    channel_router = create_channel_router(client, engine)
     app.include_router(channel_router, prefix="/api/channel")
     app.include_router(channel_router.article_router, prefix="/api/article")
 
     backup_router = create_backup_router(worker, event_bus, engine)
     app.include_router(backup_router, prefix="/api/backup")
+
+    settings_router = create_settings_router(engine)
+    app.include_router(settings_router, prefix="/api/settings")
 
     asyncio.create_task(worker.run())
 

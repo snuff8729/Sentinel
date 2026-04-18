@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime, timezone
 from sqlmodel import Session, select
-from app.db.models import Article, Download
+from app.db.models import Article, Download, Setting
 
 def create_article(session: Session, *, id: int, channel_slug: str, title: str, author: str,
     created_at: datetime, url: str, category: str | None = None) -> Article:
@@ -65,3 +65,24 @@ def update_download_status(session: Session, download_id: int, status: str, *, e
     download.error = error
     session.add(download)
     session.commit()
+
+
+def get_setting(session: Session, key: str) -> str | None:
+    setting = session.get(Setting, key)
+    return setting.value if setting else None
+
+
+def set_setting(session: Session, key: str, value: str) -> None:
+    setting = session.get(Setting, key)
+    if setting:
+        setting.value = value
+    else:
+        setting = Setting(key=key, value=value)
+    session.add(setting)
+    session.commit()
+
+
+def get_all_settings(session: Session, prefix: str = "") -> dict[str, str]:
+    statement = select(Setting)
+    settings = session.exec(statement).all()
+    return {s.key: s.value for s in settings if s.key.startswith(prefix)}

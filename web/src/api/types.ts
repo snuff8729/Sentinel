@@ -91,6 +91,18 @@ export interface BackupDetail {
   downloads: DownloadItem[]
 }
 
+export interface LLMSettings {
+  base_url: string
+  api_key: string
+  model: string
+}
+
+export interface AnalyzedLink {
+  url: string
+  type: 'download' | 'reference' | 'other'
+  label: string
+}
+
 export interface SSEFileCompleted {
   article_id: number
   filename: string

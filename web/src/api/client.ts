@@ -1,10 +1,12 @@
 import type {
+  AnalyzedLink,
   ArticleDetail,
   ArticleList,
   BackupDetail,
   BackupHistoryItem,
   Category,
   ChannelInfo,
+  LLMSettings,
   QueueStatus,
 } from './types'
 
@@ -16,8 +18,23 @@ async function get<T>(path: string): Promise<T> {
   return res.json()
 }
 
-async function post<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, { method: 'POST' })
+async function post<T>(path: string, body?: unknown): Promise<T> {
+  const init: RequestInit = { method: 'POST' }
+  if (body !== undefined) {
+    init.headers = { 'Content-Type': 'application/json' }
+    init.body = JSON.stringify(body)
+  }
+  const res = await fetch(`${BASE}${path}`, init)
+  if (!res.ok) throw new Error(`API error: ${res.status}`)
+  return res.json()
+}
+
+async function put<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
   if (!res.ok) throw new Error(`API error: ${res.status}`)
   return res.json()
 }
@@ -62,6 +79,15 @@ export const articleApi = {
 
   getComments: (slug: string, id: number) =>
     get<{ html: string }>(`/article/${slug}/${id}/comments`),
+
+  analyzeLinks: (slug: string, id: number) =>
+    post<{ links: AnalyzedLink[]; error?: string }>(`/article/${slug}/${id}/analyze-links`),
+}
+
+export const settingsApi = {
+  getLLM: () => get<LLMSettings>('/settings/llm'),
+  updateLLM: (settings: LLMSettings) => put<{ status: string }>('/settings/llm', settings),
+  testLLM: (settings: LLMSettings) => post<{ success: boolean; response?: string; error?: string }>('/settings/llm/test', settings),
 }
 
 export const backupApi = {
