@@ -3,7 +3,10 @@ from __future__ import annotations
 import asyncio
 import json
 
+from pathlib import Path
+
 from fastapi import APIRouter, Body
+from fastapi.responses import HTMLResponse
 from starlette.responses import StreamingResponse
 
 from app.backup.events import EventBus
@@ -76,7 +79,10 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
                     "id": article.id,
                     "title": article.title,
                     "author": article.author,
+                    "category": article.category,
                     "channel_slug": article.channel_slug,
+                    "url": article.url,
+                    "created_at": article.created_at.isoformat() if article.created_at else None,
                     "backup_status": article.backup_status,
                     "backup_error": article.backup_error,
                     "backed_up_at": article.backed_up_at.isoformat() if article.backed_up_at else None,
@@ -94,6 +100,14 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
                     for d in downloads
                 ],
             }
+
+    @router.get("/html/{article_id}")
+    async def get_backup_html(article_id: int):
+        data_dir = Path(worker._service._data_dir) if worker else Path("data")
+        html_path = data_dir / "articles" / str(article_id) / "backup.html"
+        if not html_path.exists():
+            return HTMLResponse("<p>백업 HTML이 없습니다.</p>", status_code=404)
+        return HTMLResponse(html_path.read_text(encoding="utf-8"))
 
     @router.get("/events")
     async def backup_events():

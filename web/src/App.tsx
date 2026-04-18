@@ -5,6 +5,7 @@ import { ChannelPage } from '@/pages/ChannelPage'
 import { ArticleDetailPage } from '@/pages/ArticleDetailPage'
 import { QueuePage } from '@/pages/QueuePage'
 import { HistoryPage } from '@/pages/HistoryPage'
+import { BackupDetailPage } from '@/pages/BackupDetailPage'
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
             <Route path="/article/:slug/:id" element={<ArticleDetailPage />} />
             <Route path="/queue" element={<QueuePage />} />
             <Route path="/history" element={<HistoryPage />} />
+            <Route path="/backup/:id" element={<BackupDetailPage />} />
           </Routes>
         </main>
       </div>

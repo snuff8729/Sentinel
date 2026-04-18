@@ -69,6 +69,8 @@ export interface BackupHistoryItem {
   title: string
   author: string
   category: string | null
+  url?: string
+  created_at?: string
   backup_status: string
   backup_error: string | null
   backed_up_at: string | null

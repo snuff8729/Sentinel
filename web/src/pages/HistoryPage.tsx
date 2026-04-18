@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { backupApi } from '@/api/client'
 import { useSSE } from '@/hooks/useSSE'
@@ -142,7 +143,13 @@ export function HistoryPage() {
                       <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle ${badgeInfo.className}`}>
                         {badgeInfo.label}
                       </span>
-                      <span className="align-middle">{item.title}</span>
+                      <Link
+                        to={`/backup/${item.id}`}
+                        className="align-middle hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {item.title}
+                      </Link>
                     </div>
                     {item.backup_error && (
                       <div className="text-xs text-destructive mt-0.5">{item.backup_error}</div>
