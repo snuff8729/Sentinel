@@ -8,7 +8,7 @@ from typing import Callable
 logger = logging.getLogger(__name__)
 
 from app.backup.events import Event, EventBus
-from app.backup.media import MediaItem, extract_media_from_html, replace_urls_in_html
+from app.backup.media import MediaItem, extract_backup_html, extract_media_from_html, replace_urls_in_html
 from app.backup.queue import DownloadQueue
 from app.db.engine import get_session
 from app.db.repository import (
@@ -128,7 +128,8 @@ class BackupService:
         )
 
         url_to_relative = {m.url: m.relative_path for m in media_items}
-        backup_html = replace_urls_in_html(html, url_to_relative)
+        filtered_html = extract_backup_html(html)
+        backup_html = replace_urls_in_html(filtered_html, url_to_relative)
         backup_path = self._data_dir / "articles" / str(article_id) / "backup.html"
         backup_path.parent.mkdir(parents=True, exist_ok=True)
         backup_path.write_text(backup_html, encoding="utf-8")

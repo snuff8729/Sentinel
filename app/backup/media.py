@@ -15,12 +15,54 @@ class MediaItem:
     relative_path: str
     warning: str | None = None  # placeholder 등 경고 메시지
 
+def extract_backup_html(html: str) -> str:
+    """전체 HTML에서 본문 + 댓글 영역만 추출하여 깔끔한 HTML로 반환."""
+    soup = BeautifulSoup(html, "lxml")
+
+    # 본문 헤더 (제목, 작성자, 추천 등)
+    head = soup.select_one(".article-head")
+    # 본문 내용
+    content = soup.select_one(".article-body")
+    # 댓글
+    comments = soup.select_one("#comment, .article-comment")
+
+    parts = []
+    parts.append("<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body>")
+    if head:
+        parts.append(str(head))
+    if content:
+        parts.append(str(content))
+    if comments:
+        parts.append(str(comments))
+    parts.append("</body></html>")
+
+    return "\n".join(parts)
+
+
 def extract_media_from_html(html: str, article_id: int) -> list[MediaItem]:
     soup = BeautifulSoup(html, "lxml")
+
+    # 본문 + 댓글 영역에서만 미디어 추출
+    search_areas = []
+    content = soup.select_one(".article-body")
+    if content:
+        search_areas.append(content)
+    comments = soup.select_one("#comment, .article-comment")
+    if comments:
+        search_areas.append(comments)
+
     items: list[MediaItem] = []
     seen_urls: set[str] = set()
 
-    for img in soup.select("img"):
+    all_imgs = []
+    all_vids = []
+    all_auds = []
+    for area in search_areas:
+        all_imgs.extend(area.select("img"))
+        all_vids.extend(area.select("video source, video[src]"))
+        all_auds.extend(area.select("audio[src], audio source"))
+
+    for img in all_imgs:
         src = img.get("src", "")
         if not src:
             continue
@@ -47,7 +89,7 @@ def extract_media_from_html(html: str, article_id: int) -> list[MediaItem]:
             relative_path = f"./{subdir}/{filename}"
             items.append(MediaItem(url=url, local_path=local_path, file_type=file_type, relative_path=relative_path, warning=warning))
 
-    for vid in soup.select("video source, video[src]"):
+    for vid in all_vids:
         src = vid.get("src", "")
         if not src:
             continue
@@ -61,7 +103,7 @@ def extract_media_from_html(html: str, article_id: int) -> list[MediaItem]:
         relative_path = f"./videos/{filename}"
         items.append(MediaItem(url=url, local_path=local_path, file_type="video", relative_path=relative_path))
 
-    for aud in soup.select("audio[src], audio source"):
+    for aud in all_auds:
         src = aud.get("src", "")
         if not src:
             continue
