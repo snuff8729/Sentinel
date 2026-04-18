@@ -78,4 +78,14 @@ export const backupApi = {
 
   getHistory: (status?: string) =>
     get<BackupHistoryItem[]>(`/backup/history${status ? `?status=${status}` : ''}`),
+
+  getStatuses: async (ids: number[]) => {
+    const res = await fetch(`${BASE}/backup/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(ids),
+    })
+    if (!res.ok) throw new Error(`API error: ${res.status}`)
+    return res.json() as Promise<Record<string, string>>
+  },
 }

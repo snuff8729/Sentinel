@@ -25,6 +25,7 @@ export function ChannelPage() {
   const [keyword, setKeyword] = useState('')
   const [searchTarget, setSearchTarget] = useState('전체')
   const [loading, setLoading] = useState(false)
+  const [backupStatuses, setBackupStatuses] = useState<Record<string, string>>({})
 
   const SEARCH_TARGETS: Record<string, string> = {
     '전체': 'all',
@@ -53,7 +54,15 @@ export function ChannelPage() {
     setLoading(true)
     setSelected(new Set())
     channelApi.getArticles(slug, { category, mode, page })
-      .then(setData)
+      .then(result => {
+        setData(result)
+        const ids = result.articles.map(a => a.id)
+        if (ids.length > 0) {
+          backupApi.getStatuses(ids).then(setBackupStatuses)
+        } else {
+          setBackupStatuses({})
+        }
+      })
       .finally(() => setLoading(false))
   }, [slug, category, mode, page])
 
@@ -190,6 +199,7 @@ export function ChannelPage() {
             selected={selected}
             onToggle={handleToggle}
             onToggleAll={handleToggleAll}
+            backupStatuses={backupStatuses}
           />
           <div className="flex justify-center gap-1">
             {Array.from({ length: data.total_pages }, (_, i) => i + 1).map(p => (

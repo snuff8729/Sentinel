@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Body
 from starlette.responses import StreamingResponse
 
 from app.backup.events import EventBus
@@ -47,6 +47,19 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
                 }
                 for a in articles
             ]
+
+    @router.post("/status")
+    async def get_backup_statuses(ids: list[int] = Body(...)):
+        from app.db.engine import get_session
+        from app.db.repository import get_article
+        _engine = engine or worker._service._engine
+        with get_session(_engine) as session:
+            result: dict[str, str] = {}
+            for article_id in ids:
+                article = get_article(session, article_id)
+                if article:
+                    result[str(article_id)] = article.backup_status
+            return result
 
     @router.get("/events")
     async def backup_events():
