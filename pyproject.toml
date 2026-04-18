@@ -9,8 +9,15 @@ dependencies = [
     "curl-cffi>=0.15.0",
     "fastapi>=0.136.0",
     "lxml>=6.1.0",
+    "python-dotenv>=1.2.2",
+    "sqlmodel>=0.0.38",
     "uvicorn[standard]>=0.44.0",
 ]
 
 [project.scripts]
 dev = "uvicorn app.main:app --reload"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
