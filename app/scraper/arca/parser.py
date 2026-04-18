@@ -270,7 +270,12 @@ def _parse_comment_item(el: Tag) -> Comment | None:
     author = author_el.get_text(strip=True) if author_el else ""
 
     message_el = el.select_one(".message")
-    content_html = message_el.decode_contents() if message_el else ""
+    if message_el:
+        for btn in message_el.select(".btn-more"):
+            btn.decompose()
+        content_html = message_el.decode_contents()
+    else:
+        content_html = ""
 
     time_el = el.select_one("time")
     created_at = datetime.min
