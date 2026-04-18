@@ -12,6 +12,7 @@ class LLMSettings(BaseModel):
     base_url: str = ""
     api_key: str = ""
     model: str = ""
+    prompt: str = ""
 
 
 def create_settings_router(engine) -> APIRouter:
@@ -24,6 +25,7 @@ def create_settings_router(engine) -> APIRouter:
                 base_url=get_setting(session, "llm_base_url") or "",
                 api_key=get_setting(session, "llm_api_key") or "",
                 model=get_setting(session, "llm_model") or "",
+                prompt=get_setting(session, "llm_prompt") or "",
             ).model_dump()
 
     @router.put("/llm")
@@ -32,6 +34,7 @@ def create_settings_router(engine) -> APIRouter:
             set_setting(session, "llm_base_url", settings.base_url)
             set_setting(session, "llm_api_key", settings.api_key)
             set_setting(session, "llm_model", settings.model)
+            set_setting(session, "llm_prompt", settings.prompt)
         return {"status": "saved"}
 
     @router.post("/llm/test")

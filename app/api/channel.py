@@ -89,13 +89,14 @@ def create_channel_router(client, engine=None) -> APIRouter:
             base_url = get_setting(session, "llm_base_url")
             api_key = get_setting(session, "llm_api_key") or ""
             model = get_setting(session, "llm_model") or ""
+            system_prompt = get_setting(session, "llm_prompt") or None
 
         if not base_url:
             return {"error": "LLM이 설정되지 않았습니다. 설정 페이지에서 구성해주세요.", "links": []}
 
         resp = await asyncio.to_thread(client.get, f"/b/{slug}/{article_id}")
         llm = LLMClient(base_url=base_url, api_key=api_key, model=model)
-        links = await analyze_links(resp.text, llm)
+        links = await analyze_links(resp.text, llm, system_prompt=system_prompt)
         return {"links": links}
 
     router.article_router = article_router

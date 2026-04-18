@@ -95,6 +95,7 @@ export interface LLMSettings {
   base_url: string
   api_key: string
   model: string
+  prompt: string
 }
 
 export interface AnalyzedLink {

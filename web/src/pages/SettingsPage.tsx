@@ -8,6 +8,7 @@ export function SettingsPage() {
   const [baseUrl, setBaseUrl] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [model, setModel] = useState('')
+  const [prompt, setPrompt] = useState('')
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
@@ -18,6 +19,7 @@ export function SettingsPage() {
       setBaseUrl(s.base_url)
       setApiKey(s.api_key)
       setModel(s.model)
+      setPrompt(s.prompt)
     })
   }, [])
 
@@ -25,7 +27,7 @@ export function SettingsPage() {
     setSaving(true)
     setSaveResult('')
     try {
-      await settingsApi.updateLLM({ base_url: baseUrl, api_key: apiKey, model })
+      await settingsApi.updateLLM({ base_url: baseUrl, api_key: apiKey, model, prompt })
       setSaveResult('저장되었습니다.')
     } catch {
       setSaveResult('저장 실패')
@@ -38,7 +40,7 @@ export function SettingsPage() {
     setTesting(true)
     setTestResult(null)
     try {
-      const result = await settingsApi.testLLM({ base_url: baseUrl, api_key: apiKey, model })
+      const result = await settingsApi.testLLM({ base_url: baseUrl, api_key: apiKey, model, prompt })
       if (result.success) {
         setTestResult({ success: true, message: `연결 성공: ${result.response}` })
       } else {
@@ -92,6 +94,19 @@ export function SettingsPage() {
               onChange={e => setModel(e.target.value)}
               placeholder="예: llama3, gpt-4o-mini, claude-haiku-4-5-20251001"
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">분석 프롬프트</label>
+            <textarea
+              className="flex min-h-[160px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              value={prompt}
+              onChange={e => setPrompt(e.target.value)}
+              placeholder="비워두면 기본 프롬프트를 사용합니다."
+            />
+            <p className="text-xs text-muted-foreground">
+              게시글 링크 분류에 사용할 시스템 프롬프트입니다. JSON 형식으로 응답하도록 지시해야 합니다.
+            </p>
           </div>
 
           <div className="flex gap-2">

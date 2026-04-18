@@ -10,7 +10,7 @@ from app.llm.client import LLMClient
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are a link classifier for arca.live posts (Korean community for AI chatbot assets).
+DEFAULT_SYSTEM_PROMPT = """You are a link classifier for arca.live posts (Korean community for AI chatbot assets).
 
 Given a post's text content and links, classify each link into one of these categories:
 
@@ -73,14 +73,15 @@ def _unwrap_unsafelink(url: str) -> str:
     return url
 
 
-async def analyze_links(html: str, llm: LLMClient) -> list[dict]:
+async def analyze_links(html: str, llm: LLMClient, system_prompt: str | None = None) -> list[dict]:
     """게시글 HTML에서 링크를 추출하고 LLM으로 분류."""
     context = extract_links_context(html)
     if not context:
         return []
 
+    prompt = system_prompt or DEFAULT_SYSTEM_PROMPT
     try:
-        response = await llm.chat(SYSTEM_PROMPT, context)
+        response = await llm.chat(prompt, context)
         # JSON 파싱 — ```json ... ``` 래핑 처리
         json_str = response.strip()
         if json_str.startswith("```"):
