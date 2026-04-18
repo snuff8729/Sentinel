@@ -283,6 +283,12 @@ def _parse_comment_item(el: Tag) -> Comment | None:
     if message_el:
         for btn in message_el.select(".btn-more"):
             btn.decompose()
+        for tag in message_el.select("[src]"):
+            src = tag.get("src", "")
+            if src.startswith("//"):
+                tag["src"] = f"https:{src}"
+            if tag.name in ("img", "video", "audio"):
+                tag["referrerpolicy"] = "no-referrer"
         content_html = message_el.decode_contents()
     else:
         content_html = ""
