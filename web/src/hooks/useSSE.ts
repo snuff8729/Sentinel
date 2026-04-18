@@ -7,27 +7,35 @@ export function useSSE(url: string, handlers: EventHandlers) {
   handlersRef.current = handlers
 
   useEffect(() => {
-    const source = new EventSource(url)
+    let source: EventSource | null = null
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 
-    const listeners: [string, (e: MessageEvent) => void][] = []
-    for (const eventType of Object.keys(handlersRef.current)) {
-      const listener = (e: MessageEvent) => {
-        try {
-          const data = JSON.parse(e.data)
-          handlersRef.current[eventType]?.(data)
-        } catch {
-          // ignore parse errors
-        }
+    function connect() {
+      source = new EventSource(url)
+
+      for (const eventType of Object.keys(handlersRef.current)) {
+        source.addEventListener(eventType, (e: MessageEvent) => {
+          try {
+            const data = JSON.parse(e.data)
+            handlersRef.current[eventType]?.(data)
+          } catch {
+            // ignore parse errors
+          }
+        })
       }
-      source.addEventListener(eventType, listener)
-      listeners.push([eventType, listener])
+
+      source.onerror = () => {
+        source?.close()
+        // 재연결 시도
+        reconnectTimer = setTimeout(connect, 3000)
+      }
     }
 
+    connect()
+
     return () => {
-      for (const [type, listener] of listeners) {
-        source.removeEventListener(type, listener)
-      }
-      source.close()
+      source?.close()
+      if (reconnectTimer) clearTimeout(reconnectTimer)
     }
   }, [url])
 }

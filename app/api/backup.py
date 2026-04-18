@@ -75,7 +75,14 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
             finally:
                 event_bus.unsubscribe(q)
 
-        return StreamingResponse(generate(), media_type="text/event-stream")
+        return StreamingResponse(
+            generate(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+            },
+        )
 
     @router.post("/{channel_slug}/{article_id}")
     async def enqueue_backup(channel_slug: str, article_id: int, force: bool = False):
