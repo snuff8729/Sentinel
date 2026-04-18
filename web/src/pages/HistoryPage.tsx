@@ -165,7 +165,7 @@ export function HistoryPage() {
                       </span>
                       <span>·</span>
                       <button
-                        className="text-blue-500 hover:underline"
+                        className="px-2 py-0.5 rounded border border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
                         onClick={(e) => handleRetry(e, item)}
                       >
                         재시도
