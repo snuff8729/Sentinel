@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { ArticleList } from '@/components/ArticleList'
 import { channelApi, backupApi } from '@/api/client'
 import type { ArticleList as ArticleListType, Category } from '@/api/types'
@@ -14,6 +21,7 @@ export function ChannelPage() {
   const [data, setData] = useState<ArticleListType | null>(null)
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [keyword, setKeyword] = useState('')
+  const [searchTarget, setSearchTarget] = useState('all')
   const [loading, setLoading] = useState(false)
 
   const category = searchParams.get('category') || undefined
@@ -38,7 +46,7 @@ export function ChannelPage() {
     e.preventDefault()
     if (!slug || !keyword.trim()) return
     setLoading(true)
-    channelApi.search(slug, keyword)
+    channelApi.search(slug, keyword, searchTarget)
       .then(setData)
       .finally(() => setLoading(false))
   }
@@ -123,6 +131,19 @@ export function ChannelPage() {
         </Button>
         <div className="flex-1" />
         <form onSubmit={handleSearch} className="flex gap-2">
+          <Select value={searchTarget} onValueChange={setSearchTarget}>
+            <SelectTrigger className="w-28">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">전체</SelectItem>
+              <SelectItem value="title_content">제목/내용</SelectItem>
+              <SelectItem value="title">제목</SelectItem>
+              <SelectItem value="content">내용</SelectItem>
+              <SelectItem value="nickname">글쓴이</SelectItem>
+              <SelectItem value="comment">댓글</SelectItem>
+            </SelectContent>
+          </Select>
           <Input
             value={keyword}
             onChange={e => setKeyword(e.target.value)}
