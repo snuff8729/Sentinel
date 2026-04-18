@@ -1,4 +1,6 @@
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
+import { ChannelInput } from '@/components/ChannelInput'
+import { ChannelPage } from '@/pages/ChannelPage'
 
 function App() {
   return (
@@ -11,11 +13,16 @@ function App() {
         </nav>
         <main className="p-6">
           <Routes>
-            <Route path="/" element={<div>채널 URL을 입력하세요</div>} />
-            <Route path="/channel/:slug" element={<div>채널 페이지</div>} />
-            <Route path="/article/:slug/:id" element={<div>게시글 상세</div>} />
-            <Route path="/queue" element={<div>다운로드 큐</div>} />
-            <Route path="/history" element={<div>백업 이력</div>} />
+            <Route path="/" element={
+              <div className="space-y-6">
+                <h1 className="text-2xl font-bold">채널 입력</h1>
+                <ChannelInput />
+              </div>
+            } />
+            <Route path="/channel/:slug" element={<ChannelPage />} />
+            <Route path="/article/:slug/:id" element={<div>게시글 상세 (TODO)</div>} />
+            <Route path="/queue" element={<div>다운로드 큐 (TODO)</div>} />
+            <Route path="/history" element={<div>백업 이력 (TODO)</div>} />
           </Routes>
         </main>
       </div>
