@@ -1,4 +1,11 @@
+from __future__ import annotations
+
+import os
+
 from curl_cffi import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 DEFAULT_HEADERS = {
     "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
@@ -18,10 +25,12 @@ BASE_URL = "https://arca.live"
 class ArcaClient:
     """curl-cffi 기반 arca.live 클라이언트. Cloudflare 우회를 위해 브라우저 impersonation 사용."""
 
-    def __init__(self, cookies: str):
-        """cookies: 브라우저에서 복사한 raw cookie 문자열."""
+    def __init__(self, cookies: str | None = None):
+        """cookies: raw cookie 문자열. None이면 ARCA_COOKIES 환경변수에서 로드."""
         self.session = requests.Session(impersonate="chrome136")
         self.session.headers.update(DEFAULT_HEADERS)
+        if cookies is None:
+            cookies = os.environ.get("ARCA_COOKIES", "")
         self._set_cookies(cookies)
 
     def _set_cookies(self, raw: str):
