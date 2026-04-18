@@ -102,6 +102,8 @@
 
 /* 숨겨야 할 요소 */
 .arca-article-content .btn-more,
-.arca-article-content .article-write-btns {
+.arca-article-content .article-write-btns,
+.arca-article-content .reply-link,
+.arca-article-content [href*="reports/submit"] {
   display: none;
 }

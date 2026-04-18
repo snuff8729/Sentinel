@@ -26,8 +26,13 @@ def extract_backup_html(html: str) -> str:
     # 댓글
     comments = soup.select_one("#comment, .article-comment")
 
+    # 댓글 쓰기 폼/버튼 제거
+    if comments:
+        for el in comments.select("form, .btn-arca-article-write"):
+            el.decompose()
+
     parts = []
-    parts.append("<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body>")
+    parts.append('<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>')
     if head:
         parts.append(str(head))
     if content:

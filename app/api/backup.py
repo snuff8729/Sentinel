@@ -116,7 +116,7 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
         html = html.replace('./audio/', f'{base_path}/audio/')
         html = html.replace('../../emoticons/', '/data/emoticons/')
 
-        # 기본 CSS 삽입 (프론트엔드 article-content.css와 동일)
+        # 기본 CSS 삽입
         base_css = """<style>
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -124,6 +124,27 @@ body {
   font-size: 14px; line-height: 1.8; word-break: break-word;
   color: #1a1a1a; background: #fff;
 }
+
+/* === 헤더 === */
+.article-head { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb; }
+.article-head .title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+.article-head .category-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 12px; font-weight: 500; background: #e8f5e9; color: #2e7d32; margin-right: 6px;
+}
+.article-head .info-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.article-head .member-info { display: flex; align-items: center; gap: 8px; }
+.article-head .member-info .avatar img { width: 28px; height: 28px; border-radius: 50%; }
+.article-head .user-info a { color: #1a1a1a; font-weight: 500; text-decoration: none; }
+.article-head .user-icon { display: none; }
+.article-head .zero-at-one-space { display: none; }
+.article-head .article-info { display: flex; align-items: center; gap: 4px; font-size: 13px; color: #6b7280; }
+.article-head .article-info .head { color: #9ca3af; }
+.article-head .article-info .body { font-weight: 500; color: #374151; }
+.article-head .article-info .sep { display: inline-block; width: 1px; height: 12px; background: #e5e7eb; margin: 0 4px; }
+.article-head .ion-android-star { display: none; }
+
+/* === 본문 === */
 img { max-width: 100%; height: auto; border-radius: 4px; margin: 4px 0; display: inline-block; }
 img.emoticon, img.arca-emoticon {
   display: inline; width: auto; height: 100px; max-height: 100px;
@@ -140,7 +161,25 @@ hr { border: none; border-top: 1px solid #e5e7eb; margin: 16px 0; }
 blockquote { border-left: 3px solid #e5e7eb; padding-left: 12px; margin: 8px 0; color: #6b7280; }
 code { background: #f3f4f6; padding: 2px 4px; border-radius: 3px; font-size: 0.9em; }
 img.twemoji { display: inline; height: 1.2em; width: auto; vertical-align: middle; margin: 0 1px; border-radius: 0; }
-.btn-more, .article-write-btns { display: none; }
+
+/* === 댓글 === */
+.article-comment { margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb; }
+.article-comment > .title { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+.comment-wrapper { border-bottom: 1px solid #f3f4f6; }
+.comment-item { padding: 10px 0; }
+.comment-item .info-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 13px; }
+.comment-item .user-info a { color: #1a1a1a; font-weight: 500; text-decoration: none; }
+.comment-item .user-icon { display: none; }
+.comment-item .zero-at-one-space { display: none; }
+.comment-item .avatar img { width: 24px; height: 24px; border-radius: 50%; }
+.comment-item .right { font-size: 12px; color: #9ca3af; }
+.comment-item .right a { color: #9ca3af; }
+.comment-item .message { font-size: 14px; }
+.comment-item .message .text pre { font-family: inherit; }
+
+/* === 숨김 === */
+.btn-more, .article-write-btns, .reply-link, [href*="reports/submit"] { display: none; }
+.sep:empty { display: none; }
 </style>"""
         html = html.replace('<head>', f'<head>{base_css}', 1)
         if '<head>' not in html:
