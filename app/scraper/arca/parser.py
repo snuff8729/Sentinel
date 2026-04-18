@@ -43,7 +43,7 @@ def _parse_article_row(row: Tag) -> ArticleRow | None:
         return None
 
     title_el = row.select_one(".col-title .title")
-    title = title_el.get_text(strip=True) if title_el else ""
+    title = _get_text_with_twemoji(title_el) if title_el else ""
 
     badge_el = row.select_one(".col-title .badge")
     category = badge_el.get_text(strip=True) if badge_el else None
@@ -158,7 +158,7 @@ def parse_article_detail(html: str, article_id: int) -> ArticleDetail:
     head = soup.select_one(".article-head")
 
     title_el = head.select_one(".title") if head else None
-    title = title_el.get_text(strip=True) if title_el else ""
+    title = _get_text_with_twemoji(title_el) if title_el else ""
 
     badge_el = head.select_one(".badge") if head else None
     category = badge_el.get_text(strip=True) if badge_el else None
@@ -282,6 +282,19 @@ def _parse_comment_item(el: Tag) -> Comment | None:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _get_text_with_twemoji(el: Tag) -> str:
+    """get_text()와 동일하되, twemoji img 태그의 alt 속성을 텍스트로 포함."""
+    parts: list[str] = []
+    for child in el.descendants:
+        if isinstance(child, str):
+            parts.append(child)
+        elif child.name == "img" and "twemoji" in child.get("class", []):
+            alt = child.get("alt", "")
+            if alt:
+                parts.append(alt)
+    return "".join(parts).strip()
+
 
 def _parse_int(el: Tag | None) -> int:
     if not el:
