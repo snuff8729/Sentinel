@@ -69,6 +69,7 @@ def _parse_article_row(row: Tag) -> ArticleRow | None:
 
     has_image = bool(row.select_one(".media-icon.ion-ios-photos-outline"))
     has_video = bool(row.select_one(".media-icon.ion-ios-videocam-outline"))
+    is_best = bool(title_el and title_el.select_one(".ion-android-star"))
 
     href = row.get("href", "")
     url = href if href.startswith("http") else f"https://arca.live{href}"
@@ -84,6 +85,7 @@ def _parse_article_row(row: Tag) -> ArticleRow | None:
         vote_count=vote_count,
         has_image=has_image,
         has_video=has_video,
+        is_best=is_best,
         url=url,
     )
 

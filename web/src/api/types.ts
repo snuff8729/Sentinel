@@ -14,6 +14,7 @@ export interface ArticleRow {
   vote_count: number
   has_image: boolean
   has_video: boolean
+  is_best: boolean
   url: string
 }
 

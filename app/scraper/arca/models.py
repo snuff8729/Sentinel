@@ -21,6 +21,7 @@ class ArticleRow(BaseModel):
     vote_count: int
     has_image: bool
     has_video: bool
+    is_best: bool
     url: str
 
 

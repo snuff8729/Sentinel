@@ -28,6 +28,7 @@ def test_article_row():
         vote_count=10,
         has_image=True,
         has_video=False,
+        is_best=False,
         url="https://arca.live/b/characterai/599677",
     )
     assert row.id == 599677

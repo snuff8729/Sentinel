@@ -50,6 +50,9 @@ export function ArticleList({ slug, articles, selected, onToggle, onToggleAll }:
                 to={`/article/${slug}/${article.id}`}
                 className="hover:underline"
               >
+                {article.is_best && (
+                  <span className="text-yellow-500 mr-1">★</span>
+                )}
                 {article.category && (
                   <Badge variant="secondary" className="mr-1.5 text-xs">
                     {article.category}
