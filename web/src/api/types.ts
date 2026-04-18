@@ -74,6 +74,21 @@ export interface BackupHistoryItem {
   backed_up_at: string | null
 }
 
+export interface DownloadItem {
+  id: number
+  url: string
+  local_path: string
+  file_type: string
+  status: string
+  error: string | null
+  warning: string | null
+}
+
+export interface BackupDetail {
+  article: BackupHistoryItem
+  downloads: DownloadItem[]
+}
+
 export interface SSEFileCompleted {
   article_id: number
   filename: string

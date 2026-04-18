@@ -22,3 +22,4 @@ class Download(SQLModel, table=True):
     file_type: str
     status: str = Field(default="pending")
     error: str | None = None
+    warning: str | None = None

@@ -10,7 +10,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { backupApi } from '@/api/client'
-import type { BackupHistoryItem } from '@/api/types'
+import type { BackupHistoryItem, DownloadItem } from '@/api/types'
 
 const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   completed: { label: '완료', variant: 'default' },
@@ -20,10 +20,20 @@ const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secon
   in_progress: { label: '진행중', variant: 'outline' },
 }
 
+const DL_STATUS: Record<string, { label: string; color: string }> = {
+  completed: { label: '완료', color: 'text-green-600' },
+  failed: { label: '실패', color: 'text-red-600' },
+  pending: { label: '대기', color: 'text-yellow-600' },
+  in_progress: { label: '진행중', color: 'text-blue-600' },
+}
+
 export function HistoryPage() {
   const [items, setItems] = useState<BackupHistoryItem[]>([])
   const [filter, setFilter] = useState<string | undefined>()
   const [loading, setLoading] = useState(true)
+  const [expandedId, setExpandedId] = useState<number | null>(null)
+  const [downloads, setDownloads] = useState<DownloadItem[]>([])
+  const [detailLoading, setDetailLoading] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -31,6 +41,22 @@ export function HistoryPage() {
       .then(setItems)
       .finally(() => setLoading(false))
   }, [filter])
+
+  const handleToggleDetail = async (articleId: number) => {
+    if (expandedId === articleId) {
+      setExpandedId(null)
+      setDownloads([])
+      return
+    }
+    setExpandedId(articleId)
+    setDetailLoading(true)
+    try {
+      const detail = await backupApi.getDetail(articleId)
+      setDownloads(detail.downloads)
+    } finally {
+      setDetailLoading(false)
+    }
+  }
 
   const handleRetry = async (item: BackupHistoryItem) => {
     await backupApi.enqueue(item.channel_slug, item.id, true)
@@ -73,32 +99,101 @@ export function HistoryPage() {
           <TableBody>
             {items.map(item => {
               const statusInfo = STATUS_LABELS[item.backup_status] ?? { label: item.backup_status, variant: 'outline' as const }
+              const isExpanded = expandedId === item.id
               return (
-                <TableRow key={item.id}>
-                  <TableCell className="text-muted-foreground">{item.id}</TableCell>
-                  <TableCell>
-                    <div>{item.title}</div>
-                    {item.backup_error && (
-                      <div className="text-xs text-destructive mt-0.5">{item.backup_error}</div>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-sm">{item.author}</TableCell>
-                  <TableCell>
-                    <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {item.backed_up_at
-                      ? new Date(item.backed_up_at).toLocaleString('ko-KR')
-                      : '—'}
-                  </TableCell>
-                  <TableCell>
-                    {item.backup_status === 'failed' && (
-                      <Button size="sm" variant="ghost" onClick={() => handleRetry(item)}>
-                        재시도
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
+                <>
+                  <TableRow
+                    key={item.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleToggleDetail(item.id)}
+                  >
+                    <TableCell className="text-muted-foreground">{item.id}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <span className="text-muted-foreground text-xs">{isExpanded ? '▼' : '▶'}</span>
+                        <span>{item.title}</span>
+                      </div>
+                      {item.backup_error && (
+                        <div className="text-xs text-destructive mt-0.5 ml-4">{item.backup_error}</div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm">{item.author}</TableCell>
+                    <TableCell>
+                      <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {item.backed_up_at
+                        ? new Date(item.backed_up_at).toLocaleString('ko-KR')
+                        : '—'}
+                    </TableCell>
+                    <TableCell onClick={e => e.stopPropagation()}>
+                      {item.backup_status === 'failed' && (
+                        <Button size="sm" variant="ghost" onClick={() => handleRetry(item)}>
+                          재시도
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                  {isExpanded && (
+                    <TableRow key={`${item.id}-detail`}>
+                      <TableCell colSpan={6} className="bg-muted/30 p-0">
+                        {detailLoading ? (
+                          <div className="text-center py-4 text-sm text-muted-foreground">로딩 중...</div>
+                        ) : (
+                          <div className="p-4 space-y-2">
+                            <div className="text-sm font-medium mb-2">
+                              파일 {downloads.length}개
+                              {(() => {
+                                const failed = downloads.filter(d => d.status === 'failed').length
+                                const warned = downloads.filter(d => d.warning).length
+                                const parts = []
+                                if (failed > 0) parts.push(<span key="f" className="text-red-600">{failed} 실패</span>)
+                                if (warned > 0) parts.push(<span key="w" className="text-yellow-600">{warned} 경고</span>)
+                                return parts.length > 0 ? <> — {parts.reduce<React.ReactNode[]>((acc, el, i) => i === 0 ? [el] : [...acc, ', ', el], [])}</> : null
+                              })()}
+                            </div>
+                            <div className="max-h-80 overflow-y-auto border rounded">
+                              <table className="w-full text-xs">
+                                <thead className="sticky top-0 bg-background">
+                                  <tr className="border-b">
+                                    <th className="text-left py-1.5 px-2 font-medium">파일</th>
+                                    <th className="text-left py-1.5 px-2 w-16 font-medium">타입</th>
+                                    <th className="text-left py-1.5 px-2 w-16 font-medium">상태</th>
+                                    <th className="text-left py-1.5 px-2 font-medium">비고</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {downloads.map(d => {
+                                    const dlStatus = DL_STATUS[d.status] ?? { label: d.status, color: '' }
+                                    return (
+                                      <tr key={d.id} className="border-b last:border-b-0 hover:bg-muted/20">
+                                        <td className="py-1.5 px-2 truncate max-w-xs font-mono" title={d.url}>
+                                          {d.local_path.split('/').pop()}
+                                        </td>
+                                        <td className="py-1.5 px-2">{d.file_type}</td>
+                                        <td className={`py-1.5 px-2 font-medium ${dlStatus.color}`}>
+                                          {dlStatus.label}
+                                        </td>
+                                        <td className="py-1.5 px-2">
+                                          {d.error && (
+                                            <span className="text-red-600">{d.error}</span>
+                                          )}
+                                          {d.warning && (
+                                            <span className="text-yellow-600">⚠ {d.warning}</span>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    )
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </>
               )
             })}
           </TableBody>

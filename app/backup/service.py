@@ -104,6 +104,7 @@ class BackupService:
                         url=item.url,
                         local_path=item.local_path,
                         file_type=item.file_type,
+                        warning=item.warning,
                     )
                     existing_urls.add(item.url)
 
@@ -226,6 +227,8 @@ class BackupService:
             nonlocal completed_so_far
             dest = Path(dest_str)
             item = next(m for m in media if m.url == url)
+            if item.warning:
+                logger.warning("[%d] ⚠ %s: %s", article_id, dest.name, item.warning)
             try:
                 file_resp = await asyncio.to_thread(self._client.get, url)
                 dest.write_bytes(file_resp.content)

@@ -32,8 +32,8 @@ def is_article_completed(session: Session, article_id: int) -> bool:
         return False
     return article.backup_status == "completed"
 
-def create_download(session: Session, *, article_id: int, url: str, local_path: str, file_type: str) -> Download:
-    download = Download(article_id=article_id, url=url, local_path=local_path, file_type=file_type)
+def create_download(session: Session, *, article_id: int, url: str, local_path: str, file_type: str, warning: str | None = None) -> Download:
+    download = Download(article_id=article_id, url=url, local_path=local_path, file_type=file_type, warning=warning)
     session.add(download)
     session.commit()
     session.refresh(download)

@@ -13,6 +13,7 @@ class MediaItem:
     local_path: str
     file_type: str
     relative_path: str
+    warning: str | None = None  # placeholder 등 경고 메시지
 
 def extract_media_from_html(html: str, article_id: int) -> list[MediaItem]:
     soup = BeautifulSoup(html, "lxml")
@@ -22,8 +23,6 @@ def extract_media_from_html(html: str, article_id: int) -> list[MediaItem]:
     for img in soup.select("img"):
         src = img.get("src", "")
         if not src:
-            continue
-        if _is_skip_url(src):
             continue
         url = _normalize_url(src)
         url_key = _url_path_key(url)
@@ -40,12 +39,13 @@ def extract_media_from_html(html: str, article_id: int) -> list[MediaItem]:
             relative_path = f"../../emoticons/{data_id}{ext}"
             items.append(MediaItem(url=url, local_path=local_path, file_type="emoticon", relative_path=relative_path))
         else:
+            warning = _check_placeholder(url)
             filename = _get_filename(url)
             file_type = _classify_ext(_get_ext(url))
             subdir = _subdir_for_type(file_type)
             local_path = f"articles/{article_id}/{subdir}/{filename}"
             relative_path = f"./{subdir}/{filename}"
-            items.append(MediaItem(url=url, local_path=local_path, file_type=file_type, relative_path=relative_path))
+            items.append(MediaItem(url=url, local_path=local_path, file_type=file_type, relative_path=relative_path, warning=warning))
 
     for vid in soup.select("video source, video[src]"):
         src = vid.get("src", "")
@@ -98,13 +98,14 @@ def _normalize_url(src: str) -> str:
         return f"https:{src}"
     return src
 
-SKIP_PATTERNS = {"blocked.png", "deleted.png", "noimage.png"}
+PLACEHOLDER_PATTERNS = {"blocked.png", "deleted.png", "noimage.png"}
 
 
-def _is_skip_url(src: str) -> bool:
-    path = urlparse(src).path
-    filename = PurePosixPath(path).name
-    return filename in SKIP_PATTERNS
+def _check_placeholder(url: str) -> str | None:
+    filename = PurePosixPath(urlparse(url).path).name
+    if filename in PLACEHOLDER_PATTERNS:
+        return f"arca.live placeholder image ({filename})"
+    return None
 
 
 def _get_ext(url: str) -> str:

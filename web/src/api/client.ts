@@ -1,6 +1,7 @@
 import type {
   ArticleDetail,
   ArticleList,
+  BackupDetail,
   BackupHistoryItem,
   Category,
   ChannelInfo,
@@ -75,6 +76,9 @@ export const backupApi = {
   resume: () => post<{ status: string }>('/backup/resume'),
 
   getQueue: () => get<QueueStatus>('/backup/queue'),
+
+  getDetail: (articleId: number) =>
+    get<BackupDetail>(`/backup/detail/${articleId}`),
 
   getHistory: (status?: string) =>
     get<BackupHistoryItem[]>(`/backup/history${status ? `?status=${status}` : ''}`),

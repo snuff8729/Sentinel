@@ -61,6 +61,40 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
                     result[str(article_id)] = article.backup_status
             return result
 
+    @router.get("/detail/{article_id}")
+    async def get_backup_detail(article_id: int):
+        from app.db.engine import get_session
+        from app.db.repository import get_article, get_downloads_for_article
+        _engine = engine or worker._service._engine
+        with get_session(_engine) as session:
+            article = get_article(session, article_id)
+            if not article:
+                return {"error": "not found"}
+            downloads = get_downloads_for_article(session, article_id)
+            return {
+                "article": {
+                    "id": article.id,
+                    "title": article.title,
+                    "author": article.author,
+                    "channel_slug": article.channel_slug,
+                    "backup_status": article.backup_status,
+                    "backup_error": article.backup_error,
+                    "backed_up_at": article.backed_up_at.isoformat() if article.backed_up_at else None,
+                },
+                "downloads": [
+                    {
+                        "id": d.id,
+                        "url": d.url,
+                        "local_path": d.local_path,
+                        "file_type": d.file_type,
+                        "status": d.status,
+                        "error": d.error,
+                        "warning": d.warning,
+                    }
+                    for d in downloads
+                ],
+            }
+
     @router.get("/events")
     async def backup_events():
         q = event_bus.subscribe()
