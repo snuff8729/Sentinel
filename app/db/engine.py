@@ -7,6 +7,8 @@ from sqlmodel import Session, SQLModel, create_engine as sqlmodel_create_engine
 
 load_dotenv()
 
+import app.db.models  # noqa: F401 — registers models with SQLModel.metadata
+
 DEFAULT_DB_URL = "sqlite:///data/sentinel.db"
 
 def create_engine_and_tables(db_url: str | None = None):
