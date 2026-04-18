@@ -179,6 +179,7 @@ img.twemoji { display: inline; height: 1.2em; width: auto; vertical-align: middl
 
 /* === 숨김 === */
 .btn-more, .article-write-btns, .reply-link, [href*="reports/submit"] { display: none; }
+.btn-arca-article-write, .reply-form, #commentForm { display: none; }
 .sep:empty { display: none; }
 </style>"""
         html = html.replace('<head>', f'<head>{base_css}', 1)

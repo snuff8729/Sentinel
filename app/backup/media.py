@@ -26,9 +26,9 @@ def extract_backup_html(html: str) -> str:
     # 댓글
     comments = soup.select_one("#comment, .article-comment")
 
-    # 댓글 쓰기 폼/버튼 제거
+    # 댓글 쓰기 폼/버튼/글쓰기 링크 제거
     if comments:
-        for el in comments.select("form, .btn-arca-article-write"):
+        for el in comments.select("form, .btn-arca-article-write, .reply-form"):
             el.decompose()
 
     parts = []
