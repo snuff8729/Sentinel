@@ -131,7 +131,7 @@ export function ChannelPage() {
         </Button>
         <div className="flex-1" />
         <form onSubmit={handleSearch} className="flex gap-2">
-          <Select value={searchTarget} onValueChange={setSearchTarget}>
+          <Select value={searchTarget} onValueChange={(v) => v && setSearchTarget(v)}>
             <SelectTrigger className="w-28">
               <SelectValue />
             </SelectTrigger>
