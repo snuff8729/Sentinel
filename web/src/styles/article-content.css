@@ -107,3 +107,125 @@
 .arca-article-content [href*="reports/submit"] {
   display: none;
 }
+
+/* === 댓글 섹션 (원본 HTML 구조) === */
+.arca-comment-section {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--foreground, #1a1a1a);
+}
+
+.arca-comment-section .title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.arca-comment-section .list-area > .comment-wrapper {
+  border-bottom: 1px solid var(--border, #e5e7eb);
+}
+
+.arca-comment-section .comment-item {
+  padding: 10px 0;
+}
+
+.arca-comment-section .comment-item .info-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.arca-comment-section .comment-item .user-info a {
+  color: var(--foreground, #1a1a1a);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.arca-comment-section .comment-item .user-info.author a {
+  color: #2563eb;
+}
+
+.arca-comment-section .comment-item .user-icon,
+.arca-comment-section .comment-item .zero-at-one-space {
+  display: none;
+}
+
+.arca-comment-section .comment-item .avatar img {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+
+.arca-comment-section .comment-item .right {
+  font-size: 12px;
+  color: var(--muted-foreground, #9ca3af);
+}
+
+.arca-comment-section .comment-item .right a {
+  color: var(--muted-foreground, #9ca3af);
+}
+
+.arca-comment-section .comment-item .message {
+  font-size: 14px;
+}
+
+.arca-comment-section .comment-item .message .text pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  margin: 0;
+}
+
+/* 대댓글 */
+.arca-comment-section .comment-wrapper > .comment-wrapper {
+  margin-left: 32px;
+  padding-left: 12px;
+  border-left: 2px solid var(--border, #e5e7eb);
+}
+
+.arca-comment-section .ion-android-arrow-dropup-circle {
+  font-size: 12px;
+  color: var(--muted-foreground, #9ca3af);
+  margin-right: 4px;
+}
+
+/* 아카콘 */
+.arca-comment-section img.emoticon,
+.arca-comment-section img.arca-emoticon {
+  display: inline;
+  width: auto;
+  height: 100px;
+  max-height: 100px;
+  vertical-align: middle;
+  margin: 0 2px;
+}
+
+.arca-comment-section .emoticon-wrapper,
+.arca-comment-section .combo_emoticon-wrapper {
+  display: inline-block;
+}
+
+.arca-comment-section img {
+  max-width: 100%;
+  height: auto;
+}
+
+.arca-comment-section img.twemoji {
+  display: inline;
+  height: 1.2em;
+  width: auto;
+  vertical-align: middle;
+  margin: 0 1px;
+}
+
+/* 숨길 요소 */
+.arca-comment-section .btn-more,
+.arca-comment-section .reply-link,
+.arca-comment-section [href*="reports/submit"],
+.arca-comment-section .btn-arca-article-write,
+.arca-comment-section .reply-form,
+.arca-comment-section .sep:empty {
+  display: none;
+}

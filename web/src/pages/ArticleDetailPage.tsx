@@ -2,15 +2,14 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { CommentList } from '@/components/CommentList'
 import { articleApi, backupApi } from '@/api/client'
-import type { ArticleDetail, Comment } from '@/api/types'
+import type { ArticleDetail } from '@/api/types'
 import '@/styles/article-content.css'
 
 export function ArticleDetailPage() {
   const { slug, id } = useParams<{ slug: string; id: string }>()
   const [detail, setDetail] = useState<ArticleDetail | null>(null)
-  const [comments, setComments] = useState<Comment[]>([])
+  const [commentsHtml, setCommentsHtml] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -22,7 +21,7 @@ export function ArticleDetailPage() {
       articleApi.getComments(slug, articleId),
     ]).then(([d, c]) => {
       setDetail(d)
-      setComments(c)
+      setCommentsHtml(c.html)
     }).finally(() => setLoading(false))
   }, [slug, id])
 
@@ -60,10 +59,13 @@ export function ArticleDetailPage() {
         dangerouslySetInnerHTML={{ __html: detail.content_html }}
       />
 
-      {/* 댓글 */}
-      <div className="border-t pt-4">
-        <CommentList comments={comments} />
-      </div>
+      {/* 댓글 — 백업 미리보기와 동일한 HTML 구조 */}
+      {commentsHtml && (
+        <div
+          className="arca-comment-section border-t pt-4"
+          dangerouslySetInnerHTML={{ __html: commentsHtml }}
+        />
+      )}
     </div>
   )
 }

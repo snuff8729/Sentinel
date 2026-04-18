@@ -92,6 +92,6 @@ def test_get_comments(client):
     resp = test_client.get("/api/article/characterai/168046700/comments")
     assert resp.status_code == 200
     data = resp.json()
-    assert len(data) > 0
-    assert "id" in data[0]
-    assert "author" in data[0]
+    assert "html" in data
+    assert len(data["html"]) > 0
+    assert "comment-item" in data["html"]

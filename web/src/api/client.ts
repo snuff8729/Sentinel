@@ -5,7 +5,6 @@ import type {
   BackupHistoryItem,
   Category,
   ChannelInfo,
-  Comment,
   QueueStatus,
 } from './types'
 
@@ -62,7 +61,7 @@ export const articleApi = {
     get<ArticleDetail>(`/article/${slug}/${id}`),
 
   getComments: (slug: string, id: number) =>
-    get<Comment[]>(`/article/${slug}/${id}/comments`),
+    get<{ html: string }>(`/article/${slug}/${id}/comments`),
 }
 
 export const backupApi = {

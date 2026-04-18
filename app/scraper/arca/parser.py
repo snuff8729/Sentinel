@@ -259,6 +259,27 @@ def parse_article_detail(html: str, article_id: int) -> ArticleDetail:
 # 댓글
 # ---------------------------------------------------------------------------
 
+def parse_comments_html(html: str) -> str:
+    """댓글 영역 HTML을 정제하여 반환. 쓰기 폼/신고/답글 버튼 제거."""
+    soup = BeautifulSoup(html, "lxml")
+    comment_el = soup.select_one("#comment, .article-comment")
+    if not comment_el:
+        return ""
+    # 불필요한 요소 제거
+    for el in comment_el.select("form, .reply-form, .btn-arca-article-write, .reply-link, [href*='reports/submit']"):
+        el.decompose()
+    for btn in comment_el.select(".btn-more"):
+        btn.decompose()
+    # src 정규화 + referrerpolicy
+    for tag in comment_el.select("[src]"):
+        src = tag.get("src", "")
+        if src.startswith("//"):
+            tag["src"] = f"https:{src}"
+        if tag.name in ("img", "video", "audio"):
+            tag["referrerpolicy"] = "no-referrer"
+    return comment_el.decode_contents()
+
+
 def parse_comments(html: str) -> list[Comment]:
     soup = BeautifulSoup(html, "lxml")
     comments: list[Comment] = []
