@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 class BackupRequest:
     article_id: int
     channel_slug: str
+    force: bool = False
 
 
 class BackupWorker:
@@ -27,8 +28,8 @@ class BackupWorker:
         self._current: BackupRequest | None = None
         self._pending: list[BackupRequest] = []
 
-    async def enqueue(self, article_id: int, channel_slug: str) -> int:
-        req = BackupRequest(article_id=article_id, channel_slug=channel_slug)
+    async def enqueue(self, article_id: int, channel_slug: str, *, force: bool = False) -> int:
+        req = BackupRequest(article_id=article_id, channel_slug=channel_slug, force=force)
         self._pending.append(req)
         await self._queue.put(req)
         self._event_bus.publish(Event(type="queue_updated", data=self._queue_snapshot()))
@@ -102,6 +103,7 @@ class BackupWorker:
                 await self._service.backup_article(
                     article_id=req.article_id,
                     channel_slug=req.channel_slug,
+                    force=req.force,
                     pause_event=self._pause_event,
                     cancel_check=lambda aid=req.article_id: aid in self._cancelled,
                     event_bus=self._event_bus,

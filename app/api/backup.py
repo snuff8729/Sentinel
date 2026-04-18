@@ -44,8 +44,8 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus) -> APIRouter
         return StreamingResponse(generate(), media_type="text/event-stream")
 
     @router.post("/{channel_slug}/{article_id}")
-    async def enqueue_backup(channel_slug: str, article_id: int):
-        position = await worker.enqueue(article_id, channel_slug)
+    async def enqueue_backup(channel_slug: str, article_id: int, force: bool = False):
+        position = await worker.enqueue(article_id, channel_slug, force=force)
         return {"status": "queued", "position": position}
 
     @router.delete("/{article_id}")
