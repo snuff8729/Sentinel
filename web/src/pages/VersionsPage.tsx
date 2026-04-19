@@ -141,14 +141,6 @@ export function VersionsPage() {
                   >
                     이동
                   </Button>
-                  {group.articles.length > 1 && (
-                    <Button
-                      size="sm" variant="ghost" className="h-6 text-xs text-muted-foreground"
-                      onClick={() => handleRemoveArticle(group.id, article.id)}
-                    >
-                      분리
-                    </Button>
-                  )}
                 </div>
               ))}
             </div>
