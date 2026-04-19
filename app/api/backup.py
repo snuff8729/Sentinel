@@ -70,7 +70,7 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
     async def get_backup_detail(article_id: int):
         from app.db.engine import get_session
         from app.db.repository import get_article, get_downloads_for_article, get_links_for_article
-        from app.db.models import ArticleVersion
+        from app.db.models import Article, ArticleVersion
         _engine = engine or worker._service._engine
         with get_session(_engine) as session:
             article = get_article(session, article_id)
