@@ -115,8 +115,9 @@ export function ArticleList({
                   }`}
                   onClick={(e) => {
                     e.stopPropagation()
-                    onToggleFollow?.(article.author)
+                    if (article.author) onToggleFollow?.(article.author)
                   }}
+                  disabled={!article.author}
                   title={isFollowed ? '팔로우 해제' : '팔로우'}
                 >
                   {isFollowed ? '팔로잉' : '+'}
