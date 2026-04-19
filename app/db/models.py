@@ -15,6 +15,7 @@ class Article(SQLModel, table=True):
     backed_up_at: datetime | None = None
     analysis_status: str = Field(default="none")  # "none" | "pending" | "completed" | "failed"
     analysis_error: str | None = None
+    embedding: str | None = None  # JSON serialized float list
 
 class FollowedUser(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
@@ -25,6 +26,15 @@ class FollowedUser(SQLModel, table=True):
 class Setting(SQLModel, table=True):
     key: str = Field(primary_key=True)
     value: str
+
+
+class ArticleVersion(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    article_id: int = Field(foreign_key="article.id")         # 새 글
+    related_article_id: int = Field(foreign_key="article.id")  # 기존 글
+    relation: str  # "new_version" | "same_series" | "unrelated"
+    confidence: float = 0.0  # 임베딩 유사도
+    llm_reason: str | None = None  # LLM 판별 이유
 
 
 class ArticleLink(SQLModel, table=True):

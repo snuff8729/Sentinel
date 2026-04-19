@@ -70,6 +70,7 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
     async def get_backup_detail(article_id: int):
         from app.db.engine import get_session
         from app.db.repository import get_article, get_downloads_for_article, get_links_for_article
+        from app.db.models import ArticleVersion
         _engine = engine or worker._service._engine
         with get_session(_engine) as session:
             article = get_article(session, article_id)
@@ -77,6 +78,14 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
                 return {"error": "not found"}
             downloads = get_downloads_for_article(session, article_id)
             links = get_links_for_article(session, article_id)
+
+            # 버전 관계
+            from sqlmodel import select
+            versions_stmt = select(ArticleVersion).where(
+                (ArticleVersion.article_id == article_id) | (ArticleVersion.related_article_id == article_id)
+            )
+            versions = session.exec(versions_stmt).all()
+
             return {
                 "article": {
                     "id": article.id,
@@ -113,6 +122,22 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
                         "source_article_id": l.source_article_id,
                     }
                     for l in links
+                ],
+                "versions": [
+                    {
+                        "id": v.id,
+                        "article_id": v.article_id,
+                        "related_article_id": v.related_article_id,
+                        "relation": v.relation,
+                        "confidence": v.confidence,
+                        "llm_reason": v.llm_reason,
+                        # 상대방 게시글 제목
+                        "related_title": (
+                            session.get(Article, v.related_article_id if v.article_id == article_id else v.article_id)
+                        ).title if session.get(Article, v.related_article_id if v.article_id == article_id else v.article_id) else "",
+                        "related_id": v.related_article_id if v.article_id == article_id else v.article_id,
+                    }
+                    for v in versions
                 ],
             }
 

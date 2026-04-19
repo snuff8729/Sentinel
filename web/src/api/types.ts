@@ -100,6 +100,7 @@ export interface BackupDetail {
   article: BackupHistoryItem
   downloads: DownloadItem[]
   links?: ArticleLinkItem[]
+  versions?: VersionRelation[]
 }
 
 export interface LLMSettings {
@@ -107,6 +108,23 @@ export interface LLMSettings {
   api_key: string
   model: string
   prompt: string
+}
+
+export interface EmbeddingSettings {
+  base_url: string
+  api_key: string
+  model: string
+}
+
+export interface VersionRelation {
+  id: number
+  article_id: number
+  related_article_id: number
+  relation: string
+  confidence: number
+  llm_reason: string | null
+  related_title: string
+  related_id: number
 }
 
 export interface AnalyzedLink {

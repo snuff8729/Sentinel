@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from app.backup.events import Event, EventBus
 from app.backup.service import BackupService
 from app.llm.service import LinkAnalysisService
+from app.llm.version import VersionDetector
 
 logger = logging.getLogger(__name__)
 
@@ -19,10 +20,11 @@ class BackupRequest:
 
 
 class BackupWorker:
-    def __init__(self, service: BackupService, event_bus: EventBus, link_analysis: LinkAnalysisService | None = None):
+    def __init__(self, service: BackupService, event_bus: EventBus, link_analysis: LinkAnalysisService | None = None, version_detector: VersionDetector | None = None):
         self._service = service
         self._event_bus = event_bus
         self._link_analysis = link_analysis
+        self._version_detector = version_detector
         self._queue: asyncio.Queue[BackupRequest] = asyncio.Queue()
         self._pause_event = asyncio.Event()
         self._pause_event.set()
@@ -110,12 +112,23 @@ class BackupWorker:
                     cancel_check=lambda aid=req.article_id: aid in self._cancelled,
                     event_bus=self._event_bus,
                 )
-                # 백업 성공 후 자동 링크 분석
+                # 백업 성공 후 자동 처리
                 if self._link_analysis:
                     try:
                         await self._link_analysis.analyze_article(req.article_id, req.channel_slug)
                     except Exception as e:
                         logger.error("Link analysis failed for %d: %s", req.article_id, e)
+                if self._version_detector:
+                    try:
+                        if await self._version_detector.generate_embedding(req.article_id):
+                            related = await self._version_detector.find_related(req.article_id)
+                            if related:
+                                for r in related:
+                                    if r["relation"] in ("new_version", "same_series"):
+                                        logger.info("[%d] 관련 게시글 발견: #%d (%s) — %s",
+                                            req.article_id, r["article_id"], r["relation"], r["reason"])
+                    except Exception as e:
+                        logger.error("Version detection failed for %d: %s", req.article_id, e)
             except Exception as e:
                 logger.error("Failed to backup article %d: %s", req.article_id, e)
 

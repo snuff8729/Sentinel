@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { backupApi } from '@/api/client'
-import type { ArticleLinkItem, BackupDetail, DownloadItem } from '@/api/types'
+import type { ArticleLinkItem, BackupDetail, DownloadItem, VersionRelation } from '@/api/types'
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   completed: { label: '완료', className: 'bg-green-100 text-green-700 border-green-300' },
@@ -24,7 +24,7 @@ export function BackupDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [detail, setDetail] = useState<BackupDetail | null>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'preview' | 'files' | 'links'>('preview')
+  const [activeTab, setActiveTab] = useState<'preview' | 'files' | 'links' | 'versions'>('preview')
 
   useEffect(() => {
     if (!id) return
@@ -43,7 +43,7 @@ export function BackupDetailPage() {
   if (loading) return <div className="text-center py-8 text-muted-foreground">로딩 중...</div>
   if (!detail) return <div className="text-center py-8">백업 데이터를 찾을 수 없습니다.</div>
 
-  const { article, downloads, links = [] } = detail
+  const { article, downloads, links = [], versions = [] } = detail
   const badgeInfo = STATUS_BADGE[article.backup_status] ?? { label: article.backup_status, className: 'bg-gray-100 text-gray-500 border-gray-300' }
   const failedCount = downloads.filter(d => d.status === 'failed').length
   const warningCount = downloads.filter(d => d.warning).length
@@ -126,6 +126,16 @@ export function BackupDetailPage() {
           {article.analysis_status === 'failed' && <span className="text-red-500 ml-1">실패</span>}
           {article.analysis_status === 'pending' && <span className="text-yellow-500 ml-1">분석중</span>}
         </button>
+        <button
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'versions'
+              ? 'border-primary text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+          onClick={() => setActiveTab('versions')}
+        >
+          버전 ({versions.length})
+        </button>
       </div>
 
       {/* 탭 내용 */}
@@ -141,6 +151,48 @@ export function BackupDetailPage() {
       )}
       {activeTab === 'files' && <FileList downloads={downloads} />}
       {activeTab === 'links' && <LinkList links={links} articleSlug={article.channel_slug} />}
+      {activeTab === 'versions' && <VersionList versions={versions} />}
+    </div>
+  )
+}
+
+const RELATION_STYLE: Record<string, { label: string; className: string }> = {
+  new_version: { label: '새 버전', className: 'bg-green-100 text-green-700 border-green-300' },
+  same_series: { label: '같은 시리즈', className: 'bg-blue-100 text-blue-700 border-blue-300' },
+  possible: { label: '유사', className: 'bg-yellow-100 text-yellow-700 border-yellow-300' },
+  unknown: { label: '미확인', className: 'bg-gray-100 text-gray-500 border-gray-300' },
+}
+
+function VersionList({ versions }: { versions: VersionRelation[] }) {
+  if (versions.length === 0) {
+    return <div className="text-center py-8 text-muted-foreground">감지된 버전 관계가 없습니다.</div>
+  }
+
+  return (
+    <div className="border rounded-md">
+      {versions.map(v => {
+        const style = RELATION_STYLE[v.relation] ?? RELATION_STYLE.unknown
+        return (
+          <div key={v.id} className="flex items-center gap-3 px-3 py-2.5 border-b last:border-b-0 hover:bg-muted/20">
+            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${style.className}`}>
+              {style.label}
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm truncate">{v.related_title}</div>
+              <div className="text-xs text-muted-foreground">
+                유사도 {(v.confidence * 100).toFixed(1)}%
+                {v.llm_reason && ` — ${v.llm_reason}`}
+              </div>
+            </div>
+            <Link
+              to={`/backup/${v.related_id}`}
+              className="text-xs px-2 py-0.5 rounded border border-purple-300 bg-purple-50 text-purple-600 hover:bg-purple-100"
+            >
+              보기
+            </Link>
+          </div>
+        )
+      })}
     </div>
   )
 }

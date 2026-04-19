@@ -135,6 +135,119 @@ export function SettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      <EmbeddingSettingsCard />
     </div>
+  )
+}
+
+function EmbeddingSettingsCard() {
+  const [baseUrl, setBaseUrl] = useState('')
+  const [apiKey, setApiKey] = useState('')
+  const [model, setModel] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [saveResult, setSaveResult] = useState('')
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
+
+  useEffect(() => {
+    settingsApi.getEmbedding().then(s => {
+      setBaseUrl(s.base_url)
+      setApiKey(s.api_key)
+      setModel(s.model)
+    })
+  }, [])
+
+  const handleSave = async () => {
+    setSaving(true)
+    setSaveResult('')
+    try {
+      await settingsApi.updateEmbedding({ base_url: baseUrl, api_key: apiKey, model })
+      setSaveResult('저장되었습니다.')
+    } catch {
+      setSaveResult('저장 실패')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleTest = async () => {
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const result = await settingsApi.testEmbedding({ base_url: baseUrl, api_key: apiKey, model })
+      if (result.success) {
+        setTestResult({ success: true, message: `연결 성공: ${result.dimensions}차원` })
+      } else {
+        setTestResult({ success: false, message: `연결 실패: ${result.error}` })
+      }
+    } catch (e) {
+      setTestResult({ success: false, message: `오류: ${e}` })
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">임베딩 설정</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          게시글 버전 감지에 사용할 임베딩 모델을 설정합니다. 백업 시 제목 임베딩을 생성하여 유사 게시글을 찾습니다.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">Base URL</label>
+          <Input
+            value={baseUrl}
+            onChange={e => setBaseUrl(e.target.value)}
+            placeholder="예: http://localhost:11434/v1, https://api.openai.com/v1"
+          />
+          <p className="text-xs text-muted-foreground">
+            Ollama: http://localhost:11434/v1 · OpenAI: https://api.openai.com/v1
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">API Key</label>
+          <Input
+            type="password"
+            value={apiKey}
+            onChange={e => setApiKey(e.target.value)}
+            placeholder="로컬이면 비워두세요"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">Model</label>
+          <Input
+            value={model}
+            onChange={e => setModel(e.target.value)}
+            placeholder="예: nomic-embed-text, text-embedding-3-small"
+          />
+        </div>
+
+        <div className="flex gap-2">
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? '저장 중...' : '저장'}
+          </Button>
+          <Button variant="outline" onClick={handleTest} disabled={testing || !baseUrl}>
+            {testing ? '테스트 중...' : '연결 테스트'}
+          </Button>
+        </div>
+
+        {saveResult && <p className="text-sm text-green-600">{saveResult}</p>}
+        {testResult && (
+          <div className={`text-sm p-3 rounded border ${
+            testResult.success
+              ? 'bg-green-50 border-green-200 text-green-700'
+              : 'bg-red-50 border-red-200 text-red-700'
+          }`}>
+            {testResult.message}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }

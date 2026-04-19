@@ -6,6 +6,7 @@ import type {
   BackupHistoryItem,
   Category,
   ChannelInfo,
+  EmbeddingSettings,
   LLMSettings,
   QueueStatus,
 } from './types'
@@ -108,6 +109,10 @@ export const settingsApi = {
   getDefaultPrompt: () => get<{ prompt: string }>('/settings/llm/default-prompt'),
   updateLLM: (settings: LLMSettings) => put<{ status: string }>('/settings/llm', settings),
   testLLM: (settings: LLMSettings) => post<{ success: boolean; response?: string; error?: string }>('/settings/llm/test', settings),
+
+  getEmbedding: () => get<EmbeddingSettings>('/settings/embedding'),
+  updateEmbedding: (settings: EmbeddingSettings) => put<{ status: string }>('/settings/embedding', settings),
+  testEmbedding: (settings: EmbeddingSettings) => post<{ success: boolean; dimensions?: number; error?: string }>('/settings/embedding/test', settings),
 }
 
 export const backupApi = {
