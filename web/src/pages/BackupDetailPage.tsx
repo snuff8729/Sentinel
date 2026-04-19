@@ -2,6 +2,13 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { backupApi, versionApi } from '@/api/client'
 import type { ArticleFileItem, ArticleLinkItem, BackupDetail, DownloadItem, VersionGroupDetail } from '@/api/types'
 
@@ -456,23 +463,28 @@ function FileItem({ file, downloadLinks = [], onUpdate }: { file: ArticleFileIte
               onChange={e => setEditAlias(e.target.value)}
             />
           </div>
-          {downloadLinks.length > 0 && (
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">연결된 다운로드 링크</label>
-              <select
-                className="w-full text-sm border rounded px-2 py-1 bg-background"
-                value={editLinkId ?? ''}
-                onChange={e => setEditLinkId(e.target.value ? Number(e.target.value) : null)}
-              >
-                <option value="">없음</option>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">연결된 다운로드 링크</label>
+            <Select
+              value={editLinkId != null ? String(editLinkId) : '_none'}
+              onValueChange={(v) => v && setEditLinkId(v === '_none' ? null : Number(v))}
+            >
+              <SelectTrigger className="w-full text-sm">
+                <SelectValue placeholder="없음" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">없음</SelectItem>
                 {downloadLinks.map(l => (
-                  <option key={l.id} value={l.id}>
+                  <SelectItem key={l.id} value={String(l.id)}>
                     [{getDomainLabel(l.url) || '링크'}] {l.label}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
-            </div>
-          )}
+              </SelectContent>
+            </Select>
+            {downloadLinks.length === 0 && (
+              <p className="text-xs text-muted-foreground">다운로드 링크가 분석되지 않았습니다.</p>
+            )}
+          </div>
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">노트</label>
             <textarea
