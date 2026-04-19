@@ -45,7 +45,7 @@ export function ArticleDetailPage() {
     }).finally(() => setLoading(false))
     // 백업 상태 + 버전 그룹 확인
     backupApi.getStatuses([articleId]).then(statuses => {
-      setBackupStatus(statuses[String(articleId)] || null)
+      setBackupStatus(statuses[String(articleId)]?.status || null)
     })
     backupApi.getDetail(articleId).then(detail => {
       if (detail.article?.version_group_id) {
