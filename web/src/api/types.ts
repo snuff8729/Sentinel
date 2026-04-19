@@ -119,12 +119,7 @@ export interface BackupDetail {
   versions?: VersionRelation[]
 }
 
-export interface LLMSettings {
-  base_url: string
-  api_key: string
-  model: string
-  prompt: string
-}
+
 
 export interface EmbeddingSettings {
   base_url: string
@@ -172,12 +167,6 @@ export interface UpdateCandidate {
   reason: string
   group_id: number | null
   group_name: string | null
-}
-
-export interface AnalyzedLink {
-  url: string
-  type: 'download' | 'reference' | 'other'
-  label: string
 }
 
 export interface SSEFileCompleted {

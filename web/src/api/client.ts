@@ -1,5 +1,4 @@
 import type {
-  AnalyzedLink,
   ArticleDetail,
   ArticleList,
   BackupDetail,
@@ -7,7 +6,6 @@ import type {
   Category,
   ChannelInfo,
   EmbeddingSettings,
-  LLMSettings,
   QueueStatus,
   UpdateCandidate,
   VersionGroupDetail,
@@ -96,8 +94,6 @@ export const articleApi = {
   getComments: (slug: string, id: number) =>
     get<{ html: string }>(`/article/${slug}/${id}/comments`),
 
-  analyzeLinks: (slug: string, id: number) =>
-    post<{ links: AnalyzedLink[]; error?: string }>(`/article/${slug}/${id}/analyze-links`),
 }
 
 export const versionApi = {
@@ -127,11 +123,6 @@ export const followApi = {
 }
 
 export const settingsApi = {
-  getLLM: () => get<LLMSettings>('/settings/llm'),
-  getDefaultPrompt: () => get<{ prompt: string }>('/settings/llm/default-prompt'),
-  updateLLM: (settings: LLMSettings) => put<{ status: string }>('/settings/llm', settings),
-  testLLM: (settings: LLMSettings) => post<{ success: boolean; response?: string; error?: string }>('/settings/llm/test', settings),
-
   getEmbedding: () => get<EmbeddingSettings>('/settings/embedding'),
   updateEmbedding: (settings: EmbeddingSettings) => put<{ status: string; model_changed?: boolean }>('/settings/embedding', settings),
   testEmbedding: (settings: EmbeddingSettings) => post<{ success: boolean; dimensions?: number; error?: string }>('/settings/embedding/test', settings),

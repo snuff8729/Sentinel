@@ -5,23 +5,14 @@ import { Button } from '@/components/ui/button'
 import { articleApi, backupApi, channelApi, versionApi } from '@/api/client'
 import type { ChannelInfo } from '@/api/types'
 import { Input } from '@/components/ui/input'
-import type { AnalyzedLink, ArticleDetail } from '@/api/types'
+import type { ArticleDetail } from '@/api/types'
 import '@/styles/article-content.css'
-
-const LINK_TYPE_STYLE: Record<string, { label: string; className: string }> = {
-  download: { label: '다운로드', className: 'bg-blue-100 text-blue-700 border-blue-300' },
-  reference: { label: '관련 글', className: 'bg-purple-100 text-purple-700 border-purple-300' },
-  other: { label: '기타', className: 'bg-gray-100 text-gray-500 border-gray-300' },
-}
 
 export function ArticleDetailPage() {
   const { slug, id } = useParams<{ slug: string; id: string }>()
   const [detail, setDetail] = useState<ArticleDetail | null>(null)
   const [commentsHtml, setCommentsHtml] = useState('')
   const [loading, setLoading] = useState(true)
-  const [links, setLinks] = useState<AnalyzedLink[]>([])
-  const [analyzing, setAnalyzing] = useState(false)
-  const [analyzeError, setAnalyzeError] = useState('')
   const [showVersionPicker, setShowVersionPicker] = useState(false)
   const [versionSearch, setVersionSearch] = useState('')
   const [versionResults, setVersionResults] = useState<{ id: number; name: string; author: string | null; article_count: number }[]>([])
@@ -35,8 +26,6 @@ export function ArticleDetailPage() {
     if (!slug || !id) return
     const articleId = Number(id)
     setLoading(true)
-    setLinks([])
-    setAnalyzeError('')
     setBackupStatus(null)
     Promise.all([
       articleApi.getDetail(slug, articleId),
@@ -67,29 +56,8 @@ export function ArticleDetailPage() {
     setVersionResults(results)
   }
 
-  const handleAnalyzeLinks = async () => {
-    if (!slug || !id) return
-    setAnalyzing(true)
-    setAnalyzeError('')
-    try {
-      const result = await articleApi.analyzeLinks(slug, Number(id))
-      if (result.error) {
-        setAnalyzeError(result.error)
-      }
-      setLinks(result.links || [])
-    } catch (e) {
-      setAnalyzeError(String(e))
-    } finally {
-      setAnalyzing(false)
-    }
-  }
-
   if (loading) return <div className="text-center py-8 text-muted-foreground">로딩 중...</div>
   if (!detail) return <div className="text-center py-8">게시글을 찾을 수 없습니다.</div>
-
-  const downloadLinks = links.filter(l => l.type === 'download')
-  const referenceLinks = links.filter(l => l.type === 'reference')
-  const otherLinks = links.filter(l => l.type === 'other')
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -155,9 +123,6 @@ export function ArticleDetailPage() {
               이 글 백업
             </Button>
           )}
-          <Button variant="outline" onClick={handleAnalyzeLinks} disabled={analyzing}>
-            {analyzing ? '분석 중...' : '링크 분석 (LLM)'}
-          </Button>
         </div>
 
         {/* 큐 추가 피드백 */}
@@ -263,44 +228,6 @@ export function ArticleDetailPage() {
         )}
       </div>
 
-      {/* 분석 에러 */}
-      {analyzeError && (
-        <div className="text-sm p-3 rounded border bg-red-50 border-red-200 text-red-700">
-          {analyzeError}
-        </div>
-      )}
-
-      {/* 분석된 링크 */}
-      {links.length > 0 && (
-        <div className="space-y-3 p-4 border rounded-md bg-muted/20">
-          <h3 className="font-bold text-sm">분석된 링크</h3>
-          {downloadLinks.length > 0 && (
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-blue-600">다운로드</p>
-              {downloadLinks.map((l, i) => (
-                <LinkRow key={i} link={l} />
-              ))}
-            </div>
-          )}
-          {referenceLinks.length > 0 && (
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-purple-600">관련 게시글</p>
-              {referenceLinks.map((l, i) => (
-                <LinkRow key={i} link={l} isReference slug={slug} />
-              ))}
-            </div>
-          )}
-          {otherLinks.length > 0 && (
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-gray-500">기타</p>
-              {otherLinks.map((l, i) => (
-                <LinkRow key={i} link={l} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* 버전 그룹 */}
       {versionGroup && versionGroup.articles.length > 0 && (
         <div className="border rounded-md">
@@ -359,36 +286,3 @@ export function ArticleDetailPage() {
   )
 }
 
-function LinkRow({ link, isReference }: { link: AnalyzedLink; isReference?: boolean; slug?: string }) {
-  const style = LINK_TYPE_STYLE[link.type] ?? LINK_TYPE_STYLE.other
-
-  // arca.live 내부 링크면 앱 내 이동
-  const arcaMatch = isReference && link.url.match(/arca\.live\/b\/([^/]+)\/(\d+)/)
-
-  return (
-    <div className="flex items-center gap-2 text-sm py-1">
-      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${style.className}`}>
-        {style.label}
-      </span>
-      <span className="text-muted-foreground">{link.label}</span>
-      <span className="flex-1" />
-      {arcaMatch ? (
-        <Link
-          to={`/article/${arcaMatch[1]}/${arcaMatch[2]}`}
-          className="text-xs px-2 py-0.5 rounded border border-purple-300 bg-purple-50 text-purple-600 hover:bg-purple-100"
-        >
-          보기
-        </Link>
-      ) : (
-        <a
-          href={link.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs px-2 py-0.5 rounded border border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100"
-        >
-          열기 ↗
-        </a>
-      )}
-    </div>
-  )
-}

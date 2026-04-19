@@ -170,21 +170,6 @@ export function HistoryPage() {
                       <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle ${badgeInfo.className}`}>
                         {badgeInfo.label}
                       </span>
-                      {item.analysis_status === 'completed' && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle bg-indigo-100 text-indigo-700 border-indigo-300">
-                          분석완료
-                        </span>
-                      )}
-                      {item.analysis_status === 'manual_required' && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle bg-amber-100 text-amber-700 border-amber-300">
-                          수동 다운로드 필요
-                        </span>
-                      )}
-                      {item.analysis_status === 'failed' && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle bg-orange-100 text-orange-700 border-orange-300">
-                          분석실패
-                        </span>
-                      )}
                       {item.backup_status === 'completed' && item.download_complete === false && item.analysis_status !== 'none' && item.analysis_status !== 'manual_required' && (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle bg-red-100 text-red-700 border-red-300">
                           다운로드 미완료
