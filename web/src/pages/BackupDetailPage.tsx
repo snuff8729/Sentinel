@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -31,6 +31,7 @@ const DL_STATUS: Record<string, { label: string; color: string }> = {
 
 export function BackupDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const [detail, setDetail] = useState<BackupDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'preview' | 'files' | 'links' | 'versions'>('preview')
@@ -55,6 +56,7 @@ export function BackupDetailPage() {
     if (!detail) return
     await backupApi.enqueue(detail.article.channel_slug, detail.article.id, true)
     toast.success('백업 큐에 다시 추가했습니다.')
+    navigate('/queue')
   }
 
   if (loading) return <div className="text-center py-8 text-muted-foreground">로딩 중...</div>

@@ -21,12 +21,22 @@ def test_extract_images():
 
 def test_extract_emoticons():
     html = _wrap('''
-        <img class="arca-emoticon" data-id="227952228" src="//ac-p3.namu.la/emote.png?expires=1&key=x" width="100" height="100">
+        <img class="emoticon" data-id="227952228" src="//ac-p3.namu.la/emote.png?expires=1&key=x" width="100" height="100">
     ''')
     items = extract_media_from_html(html, article_id=100)
     assert len(items) == 1
     assert items[0].file_type == "emoticon"
     assert items[0].local_path == "emoticons/227952228.png"
+
+def test_extract_video_emoticon():
+    html = _wrap('''
+        <video class="emoticon" src="//ac-p3.namu.la/emote.mp4?expires=1&key=x" data-id="113951890"></video>
+    ''')
+    items = extract_media_from_html(html, article_id=100)
+    assert len(items) == 1
+    assert items[0].file_type == "emoticon"
+    assert items[0].local_path == "emoticons/113951890.mp4"
+    assert items[0].relative_path == "../../emoticons/113951890.mp4"
 
 def test_extract_video():
     html = _wrap('''
@@ -66,7 +76,7 @@ def test_extract_deduplicates():
 def test_extract_comment_media():
     html = _wrap(
         '<img src="//ac-p3.namu.la/body.png?expires=1&key=x">',
-        '<img class="arca-emoticon" data-store-id="999" src="//ac-p3.namu.la/emote.png?expires=1&key=x">',
+        '<img class="emoticon" data-store-id="999" src="//ac-p3.namu.la/emote.png?expires=1&key=x">',
     )
     items = extract_media_from_html(html, article_id=100)
     assert len(items) == 2
@@ -84,6 +94,32 @@ def test_ignores_outside_content():
     items = extract_media_from_html(html, article_id=100)
     assert len(items) == 1
     assert "body.png" in items[0].local_path
+
+def test_extract_backup_html_replaces_twemoji_with_alt():
+    html = '''
+    <html><body>
+    <div class="article-head"><h1>제목 <img class="twemoji" alt="🔞" src="/node_modules/twemoji/assets/svg/1f51e.svg"></h1></div>
+    <div class="article-body"><p>본문 <img class="twemoji" alt="😀" src="/node_modules/twemoji/assets/svg/1f600.svg"></p></div>
+    <div id="comment" class="article-comment"><div>댓글 <img class="twemoji" alt="👍" src="/node_modules/twemoji/assets/svg/1f44d.svg"></div></div>
+    </body></html>
+    '''
+    result = extract_backup_html(html)
+    assert "🔞" in result
+    assert "😀" in result
+    assert "👍" in result
+    assert "twemoji" not in result
+    assert "node_modules" not in result
+
+
+def test_extract_media_skips_twemoji():
+    html = _wrap('''
+        <img class="twemoji" alt="🔞" src="/node_modules/twemoji/assets/svg/1f51e.svg">
+        <img src="//ac-p3.namu.la/real.png?expires=1&key=x">
+    ''')
+    items = extract_media_from_html(html, article_id=100)
+    assert len(items) == 1
+    assert "real.png" in items[0].local_path
+
 
 def test_extract_backup_html():
     html = '''
@@ -110,7 +146,7 @@ def test_replace_urls_in_html():
     assert "namu.la" not in result
 
 def test_replace_urls_emoticon_relative_path():
-    html = '<img class="arca-emoticon" data-id="123" src="//ac-p3.namu.la/emote.png?expires=1&amp;key=x">'
+    html = '<img class="emoticon" data-id="123" src="//ac-p3.namu.la/emote.png?expires=1&amp;key=x">'
     url_map = {"https://ac-p3.namu.la/emote.png?expires=1&key=x": "../../emoticons/123.png"}
     result = replace_urls_in_html(html, url_map)
     assert "../../emoticons/123.png" in result

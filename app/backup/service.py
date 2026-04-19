@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import shutil
 from pathlib import Path
 from typing import Callable
+
+from sqlmodel import select
 
 logger = logging.getLogger(__name__)
 
@@ -11,10 +14,12 @@ from app.backup.events import Event, EventBus
 from app.backup.media import MediaItem, extract_backup_html, extract_media_from_html, replace_urls_in_html
 from app.backup.queue import DownloadQueue
 from app.db.engine import get_session
+from app.db.models import Article, ArticleFile, ArticleLink, Download
 from app.db.repository import (
     create_article,
     create_download,
     delete_downloads_for_article,
+    delete_links_for_article,
     get_article,
     get_downloads_for_article,
     get_or_create_solo_group,
@@ -32,6 +37,31 @@ class BackupService:
         self._data_dir = Path(data_dir)
         self._queue = DownloadQueue()
         self._http_lock = asyncio.Lock()  # curl-cffi Session은 스레드 세이프하지 않음
+
+    def reset_article_for_retry(self, article_id: int) -> None:
+        """백업 재시도 전 초기화: data/articles/{id}/ 삭제 + 관련 DB 레코드 삭제 + Article 상태 리셋.
+        아카콘(data/emoticons/)은 다른 게시글이 공유하므로 보존."""
+        article_dir = self._data_dir / "articles" / str(article_id)
+        if article_dir.exists():
+            shutil.rmtree(article_dir, ignore_errors=True)
+            logger.info("[%d] 백업 디렉토리 삭제: %s", article_id, article_dir)
+
+        with get_session(self._engine) as session:
+            delete_downloads_for_article(session, article_id)
+            delete_links_for_article(session, article_id)
+            for af in session.exec(select(ArticleFile).where(ArticleFile.article_id == article_id)).all():
+                session.delete(af)
+            article = session.get(Article, article_id)
+            if article is not None:
+                article.backup_status = "pending"
+                article.backup_error = None
+                article.backed_up_at = None
+                article.analysis_status = "none"
+                article.analysis_error = None
+                article.download_complete = False
+                session.add(article)
+            session.commit()
+        logger.info("[%d] 재시도용 초기화 완료", article_id)
 
     async def backup_article(
         self,

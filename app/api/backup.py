@@ -381,6 +381,8 @@ img.twemoji { display: inline; height: 1.2em; width: auto; vertical-align: middl
 
     @router.post("/{channel_slug}/{article_id}")
     async def enqueue_backup(channel_slug: str, article_id: int, force: bool = False):
+        if force:
+            worker._service.reset_article_for_retry(article_id)
         position = await worker.enqueue(article_id, channel_slug, force=force)
         return {"status": "queued", "position": position}
 

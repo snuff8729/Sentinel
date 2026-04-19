@@ -229,13 +229,16 @@ def parse_article_detail(html: str, article_id: int) -> ArticleDetail:
             src = img.get("src", "")
             if not src:
                 continue
-            if "arca-emoticon" in img.get("class", []):
+            if "emoticon" in img.get("class", []):
                 continue
             url = f"https:{src}" if src.startswith("//") else src
             attachments.append(Attachment(url=url, media_type="image"))
         for vid in search_el.select("video source, video"):
             src = vid.get("src", "")
             if not src:
+                continue
+            video_el = vid if vid.name == "video" else vid.parent
+            if video_el is not None and "emoticon" in video_el.get("class", []):
                 continue
             url = f"https:{src}" if src.startswith("//") else src
             attachments.append(Attachment(url=url, media_type="video"))

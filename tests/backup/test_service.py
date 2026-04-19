@@ -27,7 +27,7 @@ SAMPLE_HTML = '''
 <div class="article-body">
     <div class="article-content">
         <img src="//ac-p3.namu.la/20260418sac/abc123.png?expires=1&key=x" width="800">
-        <img class="arca-emoticon" data-store-id="9999" src="//ac-p3.namu.la/emote.png?expires=1&key=x" width="100">
+        <img class="emoticon" data-store-id="9999" src="//ac-p3.namu.la/emote.png?expires=1&key=x" width="100">
     </div>
 </div>
 </html>
@@ -97,6 +97,45 @@ def test_backup_force_redownload(tmp_path):
     call_count_before = service._client.get.call_count
     asyncio.run(service.backup_article(article_id=100, channel_slug="test", force=True, event_bus=event_bus))
     assert service._client.get.call_count > call_count_before
+    engine.dispose()
+
+
+def test_reset_article_for_retry_wipes_files_and_db(tmp_path):
+    from app.db.models import ArticleFile, ArticleLink
+    engine, service, data_dir, event_bus = _setup(tmp_path)
+    asyncio.run(service.backup_article(article_id=100, channel_slug="test", event_bus=event_bus))
+
+    article_dir = data_dir / "articles" / "100"
+    emoticon_file = data_dir / "emoticons" / "9999.png"
+    assert article_dir.exists()
+    assert emoticon_file.exists()
+
+    with Session(engine) as session:
+        session.add(ArticleLink(article_id=100, url="https://example.com", link_type="download", label="test"))
+        session.add(ArticleFile(article_id=100, filename="x.zip", local_path="articles/100/downloads/x.zip"))
+        session.commit()
+
+    service.reset_article_for_retry(100)
+
+    assert not article_dir.exists()
+    assert emoticon_file.exists(), "emoticons/ 공용 저장소는 보존되어야 함"
+
+    with Session(engine) as session:
+        art = get_article(session, 100)
+        assert art.backup_status == "pending"
+        assert art.backup_error is None
+        assert art.backed_up_at is None
+        assert art.download_complete is False
+        assert len(get_downloads_for_article(session, 100)) == 0
+        from sqlmodel import select as _select
+        assert list(session.exec(_select(ArticleLink).where(ArticleLink.article_id == 100))) == []
+        assert list(session.exec(_select(ArticleFile).where(ArticleFile.article_id == 100))) == []
+    engine.dispose()
+
+
+def test_reset_article_for_retry_no_article(tmp_path):
+    engine, service, data_dir, event_bus = _setup(tmp_path)
+    service.reset_article_for_retry(99999)
     engine.dispose()
 
 

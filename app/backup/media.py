@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 from urllib.parse import urlparse
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString
 
 VIDEO_EXTS = {".mp4", ".webm", ".mov", ".avi"}
 AUDIO_EXTS = {".mp3", ".ogg", ".wav", ".flac", ".m4a"}
@@ -30,6 +30,14 @@ def extract_backup_html(html: str) -> str:
     if comments:
         for el in comments.select("form, .btn-arca-article-write, .reply-form, .avatar"):
             el.decompose()
+
+    # twemoji img → alt 유니코드 이모지로 치환 (arca.live 상대 경로라 오프라인 깨짐 방지)
+    for area in (head, content, comments):
+        if area is None:
+            continue
+        for img in area.select("img.twemoji"):
+            alt = img.get("alt", "")
+            img.replace_with(NavigableString(alt))
 
     parts = []
     parts.append('<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>')
@@ -71,6 +79,9 @@ def extract_media_from_html(html: str, article_id: int) -> list[MediaItem]:
         src = img.get("src", "")
         if not src:
             continue
+        # twemoji는 백업 HTML에서 alt 텍스트로 치환되므로 다운로드 대상 아님
+        if "twemoji" in img.get("class", []):
+            continue
         # 아바타 이미지 제외
         parent = img.parent
         if parent and "avatar" in " ".join(parent.get("class", [])):
@@ -80,7 +91,7 @@ def extract_media_from_html(html: str, article_id: int) -> list[MediaItem]:
         if url_key in seen_urls:
             continue
         seen_urls.add(url_key)
-        if "arca-emoticon" in img.get("class", []):
+        if "emoticon" in img.get("class", []):
             data_id = img.get("data-store-id", "") or img.get("data-id", "")
             if not data_id:
                 # fallback: URL의 파일명 해시를 ID로 사용
@@ -107,6 +118,16 @@ def extract_media_from_html(html: str, article_id: int) -> list[MediaItem]:
         if url_key in seen_urls:
             continue
         seen_urls.add(url_key)
+        video_el = vid if vid.name == "video" else vid.parent
+        if video_el is not None and "emoticon" in video_el.get("class", []):
+            data_id = video_el.get("data-store-id", "") or video_el.get("data-id", "")
+            if not data_id:
+                data_id = PurePosixPath(urlparse(url).path).stem
+            ext = _get_ext(url)
+            local_path = f"emoticons/{data_id}{ext}"
+            relative_path = f"../../emoticons/{data_id}{ext}"
+            items.append(MediaItem(url=url, local_path=local_path, file_type="emoticon", relative_path=relative_path))
+            continue
         filename = _get_filename(url)
         local_path = f"articles/{article_id}/videos/{filename}"
         relative_path = f"./videos/{filename}"
