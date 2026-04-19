@@ -367,7 +367,7 @@ function ResourcesTab({ links, files, articleId, articleSlug, onUpdate }: {
         {files.length > 0 && (
           <div className="border rounded-md">
             {files.map(f => (
-              <FileItem key={f.id} file={f} onUpdate={onUpdate} />
+              <FileItem key={f.id} file={f} downloadLinks={links.filter(l => l.type === 'download')} onUpdate={onUpdate} />
             ))}
           </div>
         )}
@@ -396,16 +396,19 @@ function ResourcesTab({ links, files, articleId, articleSlug, onUpdate }: {
   )
 }
 
-function FileItem({ file, onUpdate }: { file: ArticleFileItem; onUpdate: () => void }) {
+function FileItem({ file, downloadLinks = [], onUpdate }: { file: ArticleFileItem; downloadLinks?: ArticleLinkItem[]; onUpdate: () => void }) {
   const [expanded, setExpanded] = useState(false)
   const [editAlias, setEditAlias] = useState(file.filename)
   const [editNote, setEditNote] = useState(file.note || '')
+  const [editLinkId, setEditLinkId] = useState<number | null>(file.source_link_id)
   const [saving, setSaving] = useState(false)
+
+  const linkedLink = downloadLinks.find(l => l.id === file.source_link_id)
 
   const handleSave = async () => {
     setSaving(true)
     try {
-      await backupApi.updateFreeFile(file.id, { filename: editAlias, note: editNote })
+      await backupApi.updateFreeFile(file.id, { filename: editAlias, note: editNote, source_link_id: editLinkId })
       onUpdate()
     } finally {
       setSaving(false)
@@ -425,7 +428,12 @@ function FileItem({ file, onUpdate }: { file: ArticleFileItem; onUpdate: () => v
         <span className="text-muted-foreground text-xs">{expanded ? '▼' : '▶'}</span>
         <span className="font-mono text-xs truncate flex-1">{file.filename}</span>
         <span className="text-xs text-muted-foreground">{sizeLabel}</span>
-        {file.note && <span className="text-xs text-muted-foreground truncate max-w-[150px]">{file.note}</span>}
+        {linkedLink && (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border bg-blue-50 text-blue-600 border-blue-200 truncate max-w-[120px]" title={linkedLink.label}>
+            🔗 {getDomainLabel(linkedLink.url) || '링크'}
+          </span>
+        )}
+        {file.note && !linkedLink && <span className="text-xs text-muted-foreground truncate max-w-[150px]">{file.note}</span>}
         <button
           className="text-xs px-2 py-0.5 rounded border border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
           onClick={async (e) => {
@@ -448,6 +456,23 @@ function FileItem({ file, onUpdate }: { file: ArticleFileItem; onUpdate: () => v
               onChange={e => setEditAlias(e.target.value)}
             />
           </div>
+          {downloadLinks.length > 0 && (
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">연결된 다운로드 링크</label>
+              <select
+                className="w-full text-sm border rounded px-2 py-1 bg-background"
+                value={editLinkId ?? ''}
+                onChange={e => setEditLinkId(e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">없음</option>
+                {downloadLinks.map(l => (
+                  <option key={l.id} value={l.id}>
+                    [{getDomainLabel(l.url) || '링크'}] {l.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">노트</label>
             <textarea

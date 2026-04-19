@@ -150,6 +150,7 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
                         "local_path": f.local_path,
                         "size": f.size,
                         "note": f.note,
+                        "source_link_id": f.source_link_id,
                     }
                     for f in files
                 ],
@@ -216,6 +217,8 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
                 af.filename = body["filename"]
             if "note" in body:
                 af.note = body["note"] or None
+            if "source_link_id" in body:
+                af.source_link_id = body["source_link_id"]
             session.add(af)
             session.commit()
         return {"status": "updated"}

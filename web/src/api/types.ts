@@ -108,6 +108,7 @@ export interface ArticleFileItem {
   local_path: string
   size: number
   note: string | null
+  source_link_id: number | null
 }
 
 export interface BackupDetail {
