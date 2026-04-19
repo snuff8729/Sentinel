@@ -153,7 +153,7 @@ export function BackupDetailPage() {
           }`}
           onClick={() => setActiveTab('links')}
         >
-          자료 ({links.length + files.length})
+          자료 ({files.length})
           {article.analysis_status === 'failed' && <span className="text-red-500 ml-1">실패</span>}
           {article.analysis_status === 'pending' && <span className="text-yellow-500 ml-1">분석중</span>}
         </button>
