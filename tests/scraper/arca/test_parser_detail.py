@@ -41,3 +41,12 @@ def test_parse_article_detail_excludes_emoticons():
     detail = parse_article_detail(html, article_id=168046805)
     for att in detail.attachments:
         assert "arca-emoticon" not in att.url
+
+
+def test_parse_article_detail_anonymous_author_includes_id():
+    """상세 페이지에선 data-filter='ㅇㅇ#NNN' 형태로 익명 고유 ID가 있어야 함."""
+    html = _load("article_detail.html")
+    detail = parse_article_detail(html, article_id=168046805)
+    # fixture의 작성자가 ㅇㅇ이면 #NNN이 붙어야 함; 일반 유저면 data-filter 값이 username
+    if detail.author.startswith("ㅇㅇ"):
+        assert "#" in detail.author, f"ㅇㅇ 작성자에 고유 ID가 붙어있지 않음: {detail.author!r}"

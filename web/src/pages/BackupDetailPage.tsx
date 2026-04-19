@@ -130,6 +130,27 @@ export function BackupDetailPage() {
             <Button size="sm" variant="ghost">arca.live에서 열기 ↗</Button>
           </a>
         )}
+        <div className="ml-auto">
+          <ConfirmDialog
+            trigger={
+              <Button size="sm" variant="outline" className="text-destructive border-destructive/40 hover:bg-destructive/10">
+                백업 삭제
+              </Button>
+            }
+            title="백업 삭제"
+            description={`"${article.title}"의 백업 파일과 DB 기록을 완전히 삭제합니다. 아카콘 공용 저장소는 보존되지만 이 게시글의 이미지/비디오/다운로드 링크/첨부 파일/분석 결과는 복구되지 않습니다. 계속할까요?`}
+            confirmText="삭제"
+            onConfirm={async () => {
+              try {
+                await backupApi.deleteArticle(article.id)
+                toast.success('백업이 삭제되었습니다.')
+                navigate('/history')
+              } catch {
+                toast.error('삭제 실패')
+              }
+            }}
+          />
+        </div>
       </div>
 
       {/* 탭 */}

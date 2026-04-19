@@ -98,13 +98,15 @@ export const articleApi = {
 }
 
 export const versionApi = {
-  listGroups: (params: { page?: number; size?: number; sort?: string; dir?: string; search?: string } = {}) => {
+  listGroups: (params: { page?: number; size?: number; sort?: string; dir?: string; search?: string; channel_slug?: string; category?: string } = {}) => {
     const qs = new URLSearchParams()
     if (params.page) qs.set('page', String(params.page))
     if (params.size) qs.set('size', String(params.size))
     if (params.sort) qs.set('sort', params.sort)
     if (params.dir) qs.set('dir', params.dir)
     if (params.search) qs.set('search', params.search)
+    if (params.channel_slug) qs.set('channel_slug', params.channel_slug)
+    if (params.category !== undefined) qs.set('category', params.category)
     const suffix = qs.toString() ? `?${qs.toString()}` : ''
     return get<PaginatedVersionGroups>(`/versions/${suffix}`)
   },
@@ -150,6 +152,9 @@ export const backupApi = {
   cancel: (articleId: number) =>
     del<{ status: string }>(`/backup/${articleId}`),
 
+  deleteArticle: (articleId: number) =>
+    del<{ status: string }>(`/backup/article/${articleId}`),
+
   pause: () => post<{ status: string }>('/backup/pause'),
   resume: () => post<{ status: string }>('/backup/resume'),
 
@@ -158,10 +163,12 @@ export const backupApi = {
   getDetail: (articleId: number) =>
     get<BackupDetail>(`/backup/detail/${articleId}`),
 
-  getHistory: (params: { status?: string; filter?: string; page?: number; size?: number; sort?: string; dir?: string } = {}) => {
+  getHistory: (params: { status?: string; filter?: string; channel_slug?: string; category?: string; page?: number; size?: number; sort?: string; dir?: string } = {}) => {
     const qs = new URLSearchParams()
     if (params.status) qs.set('status', params.status)
     if (params.filter) qs.set('filter', params.filter)
+    if (params.channel_slug) qs.set('channel_slug', params.channel_slug)
+    if (params.category !== undefined) qs.set('category', params.category)
     if (params.page) qs.set('page', String(params.page))
     if (params.size) qs.set('size', String(params.size))
     if (params.sort) qs.set('sort', params.sort)
@@ -169,6 +176,9 @@ export const backupApi = {
     const suffix = qs.toString() ? `?${qs.toString()}` : ''
     return get<{ items: BackupHistoryItem[]; total: number; page: number; size: number }>(`/backup/history${suffix}`)
   },
+
+  getHistoryCategories: () =>
+    get<{ channel_slug: string; category: string; count: number }[]>('/backup/history/categories'),
 
   uploadFreeFile: async (articleId: number, file: File, note?: string) => {
     const formData = new FormData()

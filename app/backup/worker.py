@@ -74,21 +74,31 @@ class BackupWorker:
         }
 
     async def run(self) -> None:
-        # Startup recovery: reset in_progress articles to pending
+        # Startup recovery:
+        # 1) in_progress → pending (서버 종료 시점에 처리 중이던 글)
+        # 2) pending 상태 글을 모두 큐에 다시 넣음 (DB에는 대기로 보이는데 실제 큐에 없던 버그 방지)
         from app.db.engine import get_session
         from app.db.models import Article
         from sqlmodel import select
 
         engine = self._service._engine
         with get_session(engine) as session:
-            stmt = select(Article).where(Article.backup_status == "in_progress")
-            stuck = session.exec(stmt).all()
-            for art in stuck:
+            for art in session.exec(select(Article).where(Article.backup_status == "in_progress")).all():
                 art.backup_status = "pending"
                 session.add(art)
-            if stuck:
-                session.commit()
-                logger.info("Recovered %d stuck articles to pending", len(stuck))
+            session.commit()
+
+            pending_articles = list(
+                session.exec(
+                    select(Article).where(Article.backup_status == "pending").order_by(Article.id.asc())
+                ).all()
+            )
+            requeue = [(a.id, a.channel_slug) for a in pending_articles]
+
+        if requeue:
+            for aid, slug in requeue:
+                await self.enqueue(aid, slug, force=False)
+            logger.info("Startup recovery: %d 게시글을 큐에 재투입", len(requeue))
 
         logger.info("BackupWorker started")
         while True:

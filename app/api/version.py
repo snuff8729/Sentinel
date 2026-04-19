@@ -49,8 +49,12 @@ def create_version_router(engine) -> APIRouter:
         sort: str = "latest",
         dir: str = "desc",
         search: str | None = None,
+        channel_slug: str | None = None,
+        category: str | None = None,
     ):
-        """페이지네이션 + 정렬된 그룹 요약 리스트. 게시글은 포함하지 않음."""
+        """페이지네이션 + 정렬된 그룹 요약 리스트. 게시글은 포함하지 않음.
+        channel_slug/category가 지정되면 해당 (channel, category) 조합의 article을 멤버로 가진 그룹만 반환.
+        category="" → category IS NULL (카테고리 없음)"""
         size = max(1, min(size, 200))
         page = max(1, page)
         offset = (page - 1) * size
@@ -60,13 +64,34 @@ def create_version_router(engine) -> APIRouter:
         order_clause = f"{sort_col} {direction}, vg.id DESC"
 
         params: dict = {"limit": size, "offset": offset}
-        where = ""
+        where_clauses: list[str] = []
         if search:
-            where = (
-                "WHERE (vg.name LIKE :kw OR vg.id IN "
+            where_clauses.append(
+                "(vg.name LIKE :kw OR vg.id IN "
                 "(SELECT version_group_id FROM article WHERE title LIKE :kw AND version_group_id IS NOT NULL))"
             )
             params["kw"] = f"%{search}%"
+        if channel_slug:
+            if category is not None and category == "":
+                where_clauses.append(
+                    "vg.id IN (SELECT version_group_id FROM article "
+                    "WHERE channel_slug = :ch AND category IS NULL AND version_group_id IS NOT NULL)"
+                )
+                params["ch"] = channel_slug
+            elif category:
+                where_clauses.append(
+                    "vg.id IN (SELECT version_group_id FROM article "
+                    "WHERE channel_slug = :ch AND category = :cat AND version_group_id IS NOT NULL)"
+                )
+                params["ch"] = channel_slug
+                params["cat"] = category
+            else:
+                where_clauses.append(
+                    "vg.id IN (SELECT version_group_id FROM article "
+                    "WHERE channel_slug = :ch AND version_group_id IS NOT NULL)"
+                )
+                params["ch"] = channel_slug
+        where = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
 
         with get_session(engine) as session:
             base_sql = f"""
@@ -83,7 +108,8 @@ def create_version_router(engine) -> APIRouter:
             rows = session.execute(text(base_sql), params).fetchall()
 
             count_sql = f"SELECT COUNT(*) FROM versiongroup AS vg {where}"
-            total = session.execute(text(count_sql), {k: v for k, v in params.items() if k == "kw"}).scalar() or 0
+            count_params = {k: v for k, v in params.items() if k in ("kw", "ch", "cat")}
+            total = session.execute(text(count_sql), count_params).scalar() or 0
 
             items = [
                 {

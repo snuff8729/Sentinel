@@ -34,12 +34,15 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
     async def get_history(
         status: str | None = None,
         filter: str | None = None,
+        channel_slug: str | None = None,
+        category: str | None = None,
         page: int = 1,
         size: int = 50,
         sort: str = "backed_up_at",
         dir: str = "desc",
     ):
-        """페이지네이션 + 정렬 지원. filter='download_incomplete'이면 수동 다운로드 필요 항목만."""
+        """페이지네이션 + 정렬 지원. filter='download_incomplete'이면 수동 다운로드 필요 항목만.
+        channel_slug/category는 채널별 카테고리 네임스페이스 구분을 위해 같이 받음."""
         from sqlalchemy import func as sql_func, nulls_last
         from app.db.engine import get_session
         from app.db.models import Article
@@ -62,6 +65,19 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
                 cond = (Article.backup_status == "completed") & (Article.download_complete == False) & (Article.analysis_status != "none")  # noqa: E712
                 stmt = stmt.where(cond)
                 count_stmt = count_stmt.where(cond)
+
+            if channel_slug:
+                stmt = stmt.where(Article.channel_slug == channel_slug)
+                count_stmt = count_stmt.where(Article.channel_slug == channel_slug)
+
+            if category is not None:
+                # 빈 문자열이면 "카테고리 없음" (NULL)을 의미
+                if category == "":
+                    stmt = stmt.where(Article.category.is_(None))
+                    count_stmt = count_stmt.where(Article.category.is_(None))
+                else:
+                    stmt = stmt.where(Article.category == category)
+                    count_stmt = count_stmt.where(Article.category == category)
 
             # 정렬 컬럼 매핑
             sort_col_map = {
@@ -96,6 +112,30 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
                 for a in articles
             ]
             return {"items": items, "total": total, "page": page, "size": size}
+
+    @router.get("/history/categories")
+    async def history_categories():
+        """백업된 article의 (channel_slug, category) 쌍과 개수. 이력 필터 UI용."""
+        from sqlalchemy import func as sql_func
+        from app.db.engine import get_session
+        from app.db.models import Article
+        from sqlmodel import select as sql_select
+
+        _engine = engine or worker._service._engine
+        with get_session(_engine) as session:
+            rows = session.exec(
+                sql_select(Article.channel_slug, Article.category, sql_func.count(Article.id))
+                .group_by(Article.channel_slug, Article.category)
+                .order_by(Article.channel_slug, Article.category)
+            ).all()
+            return [
+                {
+                    "channel_slug": r[0],
+                    "category": r[1] or "",
+                    "count": r[2],
+                }
+                for r in rows
+            ]
 
     @router.post("/status")
     async def get_backup_statuses(ids: list[int] = Body(...)):
@@ -444,6 +484,15 @@ img.twemoji { display: inline; height: 1.2em; width: auto; vertical-align: middl
     async def cancel_backup(article_id: int):
         worker.cancel(article_id)
         return {"status": "cancelled"}
+
+    @router.delete("/article/{article_id}")
+    async def delete_article(article_id: int):
+        """게시글을 DB와 파일에서 완전히 삭제. 큐에 있으면 먼저 취소."""
+        worker.cancel(article_id)
+        ok = worker._service.delete_article(article_id)
+        if not ok:
+            return {"error": "not found"}
+        return {"status": "deleted"}
 
     @router.get("/candidates/{article_id}")
     async def related_candidates(article_id: int, min_similarity: float = 0.5, max_similarity: float = 0.8, limit: int = 10):

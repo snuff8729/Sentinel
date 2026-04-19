@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/select'
 import { backupApi } from '@/api/client'
 import { useSSE } from '@/hooks/useSSE'
+import { ComboboxFilter } from '@/components/ComboboxFilter'
 import type { ArticleFileItem, ArticleLinkItem, BackupHistoryItem, SSEArticleStarted, SSEArticleCompleted } from '@/api/types'
 
 type SortKey = 'backed_up_at' | 'created_at' | 'title' | 'author'
@@ -40,19 +41,26 @@ export function HistoryPage() {
   const sortKey = (searchParams.get('sort') as SortKey | null) ?? 'backed_up_at'
   const sortDir = (searchParams.get('dir') as SortDir | null) ?? 'desc'
   const page = parseInt(searchParams.get('page') ?? '1', 10) || 1
-  const updateParams = (next: { filter?: string; sort?: SortKey; dir?: SortDir; page?: number }) => {
+  const channelFilter = searchParams.get('channel') ?? undefined
+  const categoryFilter = searchParams.get('category')  // null = 필터 없음, "" = 카테고리 없음, 기타 = 특정 카테고리
+  const updateParams = (next: { filter?: string; sort?: SortKey; dir?: SortDir; page?: number; channel?: string | null; category?: string | null }) => {
     const params: Record<string, string> = {}
     const f = next.filter !== undefined ? next.filter : filter
     const s = next.sort !== undefined ? next.sort : sortKey
     const d = next.dir !== undefined ? next.dir : sortDir
     const p = next.page !== undefined ? next.page : page
+    const ch = next.channel !== undefined ? next.channel : channelFilter
+    const cat = next.category !== undefined ? next.category : categoryFilter
     if (f) params.filter = f
     if (s && s !== 'backed_up_at') params.sort = s
     if (d && d !== 'desc') params.dir = d
     if (p && p !== 1) params.page = String(p)
+    if (ch) params.channel = ch
+    if (cat !== null && cat !== undefined) params.category = cat
     setSearchParams(params)
   }
   const setFilter = (next: string | undefined) => updateParams({ filter: next ?? '', page: 1 })
+  const [categoryOptions, setCategoryOptions] = useState<{ channel_slug: string; category: string; count: number }[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [expandedLinks, setExpandedLinks] = useState<ArticleLinkItem[]>([])
@@ -65,6 +73,8 @@ export function HistoryPage() {
     backupApi.getHistory({
       status: isStatusFilter ? filter : undefined,
       filter: filter === 'download_incomplete' ? 'download_incomplete' : undefined,
+      channel_slug: channelFilter,
+      category: categoryFilter ?? undefined,
       page,
       size: PAGE_SIZE,
       sort: sortKey,
@@ -75,9 +85,14 @@ export function HistoryPage() {
         setTotal(res.total)
       })
       .finally(() => setLoading(false))
-  }, [filter, isStatusFilter, page, sortKey, sortDir])
+  }, [filter, isStatusFilter, channelFilter, categoryFilter, page, sortKey, sortDir])
 
   useEffect(() => { load() }, [load])
+
+  // 카테고리 드롭다운 옵션 (마운트 시 1회)
+  useEffect(() => {
+    backupApi.getHistoryCategories().then(setCategoryOptions).catch(() => setCategoryOptions([]))
+  }, [])
 
   useSSE('/api/backup/events', {
     queue_updated: () => {},
@@ -159,10 +174,32 @@ export function HistoryPage() {
         </Button>
       </div>
 
-      {/* 정렬 */}
-      <div className="flex items-center gap-2 text-sm">
-        <span className="text-muted-foreground">정렬</span>
-        <Select value={sortKey} onValueChange={(v) => v && updateParams({ sort: v as SortKey, page: 1 })}>
+      {/* 카테고리 + 정렬 */}
+      <div className="flex items-center gap-4 text-sm flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground">카테고리</span>
+          <ComboboxFilter
+            value={channelFilter && categoryFilter !== null ? `${channelFilter}||${categoryFilter}` : null}
+            options={categoryOptions.map(opt => ({
+              value: `${opt.channel_slug}||${opt.category}`,
+              label: `${opt.channel_slug} / ${opt.category || '(없음)'} (${opt.count})`,
+            }))}
+            onChange={(v) => {
+              if (v === null) {
+                updateParams({ channel: null, category: null, page: 1 })
+                return
+              }
+              const [ch, cat] = v.split('||')
+              updateParams({ channel: ch, category: cat, page: 1 })
+            }}
+            placeholder="전체"
+            searchPlaceholder="채널/카테고리 검색..."
+            triggerClassName="w-64"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground">정렬</span>
+          <Select value={sortKey} onValueChange={(v) => v && updateParams({ sort: v as SortKey, page: 1 })}>
           <SelectTrigger className="w-32 h-8 text-xs">
             <SelectValue>
               {(v) => SORT_OPTIONS.find(o => o.value === v)?.label ?? v}
@@ -174,14 +211,15 @@ export function HistoryPage() {
             ))}
           </SelectContent>
         </Select>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => updateParams({ dir: sortDir === 'desc' ? 'asc' : 'desc', page: 1 })}
-          title={sortDir === 'desc' ? '내림차순' : '오름차순'}
-        >
-          {sortDir === 'desc' ? '↓' : '↑'}
-        </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => updateParams({ dir: sortDir === 'desc' ? 'asc' : 'desc', page: 1 })}
+            title={sortDir === 'desc' ? '내림차순' : '오름차순'}
+          >
+            {sortDir === 'desc' ? '↓' : '↑'}
+          </Button>
+        </div>
       </div>
 
       {/* 수동 다운로드 대기 요약 */}

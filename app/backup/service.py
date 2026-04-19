@@ -63,6 +63,64 @@ class BackupService:
             session.commit()
         logger.info("[%d] 재시도용 초기화 완료", article_id)
 
+    def delete_article(self, article_id: int) -> bool:
+        """게시글을 DB와 파일에서 완전히 삭제.
+        아카콘(공용)은 보존. 속한 그룹이 solo면 그룹도 같이 삭제, 멀티면 그룹은 유지."""
+        from sqlalchemy import text as sql_text
+        from app.db.models import ArticleVersion, UpdateCheckCache, VersionGroup
+        from app.db.repository import (
+            delete_links_for_article,
+            delete_version_group,
+            get_articles_in_group,
+        )
+
+        article_dir = self._data_dir / "articles" / str(article_id)
+        if article_dir.exists():
+            shutil.rmtree(article_dir, ignore_errors=True)
+            logger.info("[%d] 디렉토리 삭제: %s", article_id, article_dir)
+
+        with get_session(self._engine) as session:
+            article = session.get(Article, article_id)
+            if article is None:
+                return False
+
+            group_id = article.version_group_id
+
+            # 관련 행들 삭제
+            delete_downloads_for_article(session, article_id)
+            delete_links_for_article(session, article_id)
+            for af in session.exec(select(ArticleFile).where(ArticleFile.article_id == article_id)).all():
+                session.delete(af)
+            for av in session.exec(
+                select(ArticleVersion).where(
+                    (ArticleVersion.article_id == article_id)
+                    | (ArticleVersion.related_article_id == article_id)
+                )
+            ).all():
+                session.delete(av)
+            cache = session.get(UpdateCheckCache, article_id)
+            if cache is not None:
+                session.delete(cache)
+
+            # 임베딩 제거 (vec0 가상 테이블이 없을 수 있으므로 try)
+            try:
+                session.execute(sql_text("DELETE FROM article_vec WHERE article_id = :id"), {"id": article_id})
+            except Exception:
+                pass
+
+            session.delete(article)
+            session.commit()
+
+            # 속한 그룹이 이제 비었으면 그룹 제거, 비어있지 않으면 유지
+            if group_id is not None:
+                remaining = get_articles_in_group(session, group_id)
+                if not remaining:
+                    delete_version_group(session, group_id)
+                    logger.info("[%d] 빈 그룹 #%d 삭제", article_id, group_id)
+
+        logger.info("[%d] 삭제 완료", article_id)
+        return True
+
     async def backup_article(
         self,
         article_id: int,

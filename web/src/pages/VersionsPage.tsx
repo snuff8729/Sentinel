@@ -10,8 +10,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { versionApi } from '@/api/client'
+import { backupApi, versionApi } from '@/api/client'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { ComboboxFilter } from '@/components/ComboboxFilter'
 import type { VersionGroupDetail, VersionGroupSummary } from '@/api/types'
 
 const STATUS_DOT: Record<string, string> = {
@@ -43,18 +44,25 @@ export function VersionsPage() {
   const sortKey = (searchParams.get('sort') as SortKey | null) ?? 'latest'
   const sortDir = (searchParams.get('dir') as SortDir | null) ?? 'desc'
   const searchParam = searchParams.get('q') ?? ''
+  const channelFilter = searchParams.get('channel') ?? undefined
+  const categoryFilter = searchParams.get('category')
   const [searchInput, setSearchInput] = useState(searchParam)
+  const [categoryOptions, setCategoryOptions] = useState<{ channel_slug: string; category: string; count: number }[]>([])
 
-  const updateParams = (next: { sort?: SortKey; dir?: SortDir; page?: number; q?: string }) => {
+  const updateParams = (next: { sort?: SortKey; dir?: SortDir; page?: number; q?: string; channel?: string | null; category?: string | null }) => {
     const params: Record<string, string> = {}
     const s = next.sort !== undefined ? next.sort : sortKey
     const d = next.dir !== undefined ? next.dir : sortDir
     const p = next.page !== undefined ? next.page : page
     const q = next.q !== undefined ? next.q : searchParam
+    const ch = next.channel !== undefined ? next.channel : channelFilter
+    const cat = next.category !== undefined ? next.category : categoryFilter
     if (s && s !== 'latest') params.sort = s
     if (d && d !== 'desc') params.dir = d
     if (p && p !== 1) params.page = String(p)
     if (q) params.q = q
+    if (ch) params.channel = ch
+    if (cat !== null && cat !== undefined) params.category = cat
     setSearchParams(params)
   }
 
@@ -80,15 +88,28 @@ export function VersionsPage() {
 
   const load = useCallback(() => {
     setLoading(true)
-    versionApi.listGroups({ page, size: PAGE_SIZE, sort: sortKey, dir: sortDir, search: searchParam || undefined })
+    versionApi.listGroups({
+      page,
+      size: PAGE_SIZE,
+      sort: sortKey,
+      dir: sortDir,
+      search: searchParam || undefined,
+      channel_slug: channelFilter,
+      category: categoryFilter ?? undefined,
+    })
       .then(res => {
         setItems(res.items)
         setTotal(res.total)
       })
       .finally(() => setLoading(false))
-  }, [page, sortKey, sortDir, searchParam])
+  }, [page, sortKey, sortDir, searchParam, channelFilter, categoryFilter])
 
   useEffect(() => { load() }, [load])
+
+  // 카테고리 드롭다운 옵션 (마운트 시 1회)
+  useEffect(() => {
+    backupApi.getHistoryCategories().then(setCategoryOptions).catch(() => setCategoryOptions([]))
+  }, [])
 
   const handleExpand = async (groupId: number) => {
     if (expandedId === groupId) {
@@ -156,6 +177,27 @@ export function VersionsPage() {
           placeholder="그룹명 또는 게시글 제목 검색..."
           className="max-w-sm"
         />
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">카테고리</span>
+          <ComboboxFilter
+            value={channelFilter && categoryFilter !== null ? `${channelFilter}||${categoryFilter}` : null}
+            options={categoryOptions.map(opt => ({
+              value: `${opt.channel_slug}||${opt.category}`,
+              label: `${opt.channel_slug} / ${opt.category || '(없음)'} (${opt.count})`,
+            }))}
+            onChange={(v) => {
+              if (v === null) {
+                updateParams({ channel: null, category: null, page: 1 })
+                return
+              }
+              const [ch, cat] = v.split('||')
+              updateParams({ channel: ch, category: cat, page: 1 })
+            }}
+            placeholder="전체"
+            searchPlaceholder="채널/카테고리 검색..."
+            triggerClassName="w-64"
+          />
+        </div>
         <div className="flex items-center gap-2 text-sm">
           <span className="text-muted-foreground">정렬</span>
           <Select value={sortKey} onValueChange={(v) => v && updateParams({ sort: v as SortKey, page: 1 })}>

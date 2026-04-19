@@ -56,7 +56,7 @@ def _parse_article_row(row: Tag) -> ArticleRow | None:
             comment_count = int(m.group())
 
     author_el = row.select_one(".col-author")
-    author = author_el.get_text(strip=True) if author_el else ""
+    author = _extract_author(author_el)
 
     time_el = row.select_one(".col-time time")
     created_at = datetime.min
@@ -180,7 +180,7 @@ def parse_article_detail(html: str, article_id: int) -> ArticleDetail:
         title = title[len(category):].strip()
 
     author_el = head.select_one(".user-info") if head else None
-    author = author_el.get_text(strip=True) if author_el else ""
+    author = _extract_author(author_el)
 
     info_map: dict[str, str] = {}
     if head:
@@ -307,7 +307,7 @@ def _parse_comment_item(el: Tag) -> Comment | None:
         return None
 
     author_el = el.select_one(".user-info")
-    author = author_el.get_text(strip=True) if author_el else ""
+    author = _extract_author(author_el)
 
     message_el = el.select_one(".message")
     if message_el:
@@ -341,6 +341,22 @@ def _parse_comment_item(el: Tag) -> Comment | None:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _extract_author(el: Tag | None) -> str:
+    """작성자 식별자 추출. 익명(ㅇㅇ)은 data-filter로 고유 ID가 붙어있을 수 있음.
+    상세 페이지·댓글: <a data-filter="ㅇㅇ#70481508">ㅇㅇ</a> → "ㅇㅇ#70481508" 반환
+    목록: <span data-filter="ㅇㅇ">ㅇㅇ</span> → 번호가 없으므로 "ㅇㅇ" 반환
+    일반 유저: data-filter=username → username 반환
+    """
+    if not el:
+        return ""
+    tag = el.select_one("[data-filter]")
+    if tag:
+        val = tag.get("data-filter", "").strip()
+        if val:
+            return val
+    return el.get_text(strip=True)
+
 
 def _get_text_with_twemoji(el: Tag) -> str:
     """get_text()와 동일하되, twemoji img 태그의 alt 속성을 텍스트로 포함."""

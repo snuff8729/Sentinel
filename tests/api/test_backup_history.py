@@ -86,3 +86,25 @@ def test_history_sort_title_asc(setup):
     assert items[0]["title"] == "실패함"
     assert items[1]["title"] == "완료됨"
     engine.dispose()
+
+
+def test_history_categories(setup):
+    client, engine = setup
+    resp = client.get("/api/backup/history/categories")
+    assert resp.status_code == 200
+    data = resp.json()
+    # 두 article 모두 channel='ch', category=None이라 쌍 하나
+    assert len(data) == 1
+    assert data[0]["channel_slug"] == "ch"
+    assert data[0]["count"] == 2
+    engine.dispose()
+
+
+def test_history_filter_by_channel(setup):
+    client, engine = setup
+    resp = client.get("/api/backup/history?channel_slug=ch")
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 2
+    resp2 = client.get("/api/backup/history?channel_slug=nonexistent")
+    assert resp2.json()["total"] == 0
+    engine.dispose()

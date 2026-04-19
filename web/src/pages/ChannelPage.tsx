@@ -322,9 +322,10 @@ export function ChannelPage() {
       )}
 
       {selected.size > 0 && (
-        <div className="flex items-center gap-2 p-2 bg-muted rounded">
-          <span className="text-sm">{selected.size}개 선택</span>
+        <div className="sticky top-0 z-20 -mx-6 px-6 py-2 border-y bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 flex items-center gap-2 shadow-sm">
+          <span className="text-sm font-medium">{selected.size}개 선택</span>
           <Button size="sm" onClick={handleBackup}>백업 큐에 추가</Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>선택 해제</Button>
         </div>
       )}
 
