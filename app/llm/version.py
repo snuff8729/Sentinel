@@ -5,8 +5,15 @@ import logging
 import re
 
 from app.db.engine import get_session
-from app.db.models import Article, ArticleVersion
-from app.db.repository import get_setting, store_embedding, search_similar_articles
+from app.db.models import Article, ArticleVersion, VersionGroup
+from app.db.repository import (
+    add_article_to_group,
+    create_version_group,
+    get_or_create_solo_group,
+    get_setting,
+    search_similar_articles,
+    store_embedding,
+)
 from app.llm.client import LLMClient
 from app.llm.embedding import EmbeddingClient
 from sqlmodel import select
@@ -106,65 +113,115 @@ class VersionDetector:
 
         logger.info("[%d] 유사 게시글 %d개 발견 (sqlite-vec)", article_id, len(similar))
 
-        # LLM으로 관계 판별
+        # 가장 유사한 것만 사용
+        best_id, best_distance = similar[0]
+        best_similarity = 1.0 - best_distance
+
+        with get_session(self._engine) as session:
+            best_match = session.get(Article, best_id)
+            if not best_match:
+                return []
+
         llm = self._get_llm_client()
-        results = []
+        relation = "unknown"
+        reason = ""
+        group_name = ""
 
-        for cand_id, distance in similar:
-            with get_session(self._engine) as session:
-                cand = session.get(Article, cand_id)
-                if not cand:
-                    continue
-
-            similarity = 1.0 - distance  # distance → similarity
-            relation = "unknown"
-            reason = ""
-            group_name = ""
-
-            if llm:
-                try:
-                    prompt = VERSION_CHECK_PROMPT.format(
-                        title_a=cand.title,
-                        title_b=article.title,
-                        author=article.author,
-                    )
-                    response = await llm.chat("You are a helpful assistant.", prompt)
-                    json_str = response.strip()
-                    if json_str.startswith("```"):
-                        json_str = re.sub(r"^```\w*\n?", "", json_str)
-                        json_str = re.sub(r"\n?```$", "", json_str)
-                    data = json.loads(json_str)
-                    relation = data.get("relation", "unknown")
-                    reason = data.get("reason", "")
-                    group_name = data.get("group_name", "")
-                except Exception as e:
-                    logger.warning("[%d] LLM 판별 실패 (%d): %s", article_id, cand_id, e)
-                    relation = "unknown"
-                    reason = f"LLM 오류: {e}"
+        # LLM 판별 (있으면)
+        if llm:
+            try:
+                prompt = VERSION_CHECK_PROMPT.format(
+                    title_a=best_match.title,
+                    title_b=article.title,
+                    author=article.author,
+                )
+                response = await llm.chat("You are a helpful assistant.", prompt)
+                json_str = response.strip()
+                if json_str.startswith("```"):
+                    json_str = re.sub(r"^```\w*\n?", "", json_str)
+                    json_str = re.sub(r"\n?```$", "", json_str)
+                data = json.loads(json_str)
+                relation = data.get("relation", "unknown")
+                reason = data.get("reason", "")
+                group_name = data.get("group_name", "")
+            except Exception as e:
+                logger.warning("[%d] LLM 판별 실패 (%d): %s", article_id, best_id, e)
+                relation = "unknown"
+                reason = f"LLM 오류: {e}"
+        else:
+            # LLM 없으면 유사도 기준으로 판단
+            if best_similarity >= 0.8:
+                relation = "new_version"
+                reason = f"유사도 {best_similarity:.0%} (자동)"
             else:
                 relation = "possible"
-                reason = f"유사도 {similarity:.2f} (LLM 미설정)"
+                reason = f"유사도 {best_similarity:.0%} (LLM 미설정)"
 
-            results.append({
-                "article_id": cand_id,
-                "title": cand.title,
-                "similarity": round(similarity, 3),
-                "relation": relation,
-                "reason": reason,
-                "group_name": group_name,
-            })
+        # ArticleVersion 기록
+        if relation != "unrelated":
+            with get_session(self._engine) as session:
+                av = ArticleVersion(
+                    article_id=article_id,
+                    related_article_id=best_id,
+                    relation=relation,
+                    confidence=best_similarity,
+                    llm_reason=reason,
+                )
+                session.add(av)
+                session.commit()
 
-            # DB에 저장 (unrelated 제외)
-            if relation != "unrelated":
-                with get_session(self._engine) as session:
-                    av = ArticleVersion(
-                        article_id=article_id,
-                        related_article_id=cand_id,
-                        relation=relation,
-                        confidence=similarity,
-                        llm_reason=reason,
-                    )
-                    session.add(av)
-                    session.commit()
+        # 자동 그룹 연결
+        should_auto_link = relation in ("new_version", "same_series") or (relation == "possible" and best_similarity >= 0.8)
 
-        return results
+        if should_auto_link:
+            with get_session(self._engine) as session:
+                if best_match.version_group_id:
+                    # 기존 그룹에 합류
+                    target_group_id = best_match.version_group_id
+                    group = session.get(VersionGroup, target_group_id)
+
+                    # 현재 게시글이 solo 그룹에 있으면 삭제
+                    current = session.get(Article, article_id)
+                    if current and current.version_group_id and current.version_group_id != target_group_id:
+                        from app.db.repository import get_articles_in_group, delete_version_group
+                        old_articles = get_articles_in_group(session, current.version_group_id)
+                        if len(old_articles) <= 1:
+                            delete_version_group(session, current.version_group_id)
+
+                    add_article_to_group(session, article_id, target_group_id)
+                    logger.info("[%d] → 기존 그룹 '%s'에 자동 연결", article_id, group.name if group else target_group_id)
+                else:
+                    # 둘 다 그룹 없음 → 새 그룹 생성
+                    name = group_name or best_match.title
+                    new_group = create_version_group(session, name=name, author=article.author)
+
+                    # 현재 게시글의 solo 그룹 정리
+                    current = session.get(Article, article_id)
+                    if current and current.version_group_id:
+                        from app.db.repository import get_articles_in_group, delete_version_group
+                        old_articles = get_articles_in_group(session, current.version_group_id)
+                        if len(old_articles) <= 1:
+                            delete_version_group(session, current.version_group_id)
+
+                    # 매칭된 게시글의 solo 그룹 정리
+                    if best_match.version_group_id:
+                        from app.db.repository import get_articles_in_group, delete_version_group
+                        old_articles = get_articles_in_group(session, best_match.version_group_id)
+                        if len(old_articles) <= 1:
+                            delete_version_group(session, best_match.version_group_id)
+
+                    add_article_to_group(session, best_id, new_group.id)
+                    add_article_to_group(session, article_id, new_group.id)
+                    logger.info("[%d] → 새 그룹 '%s' 생성 + #%d과 묶음", article_id, name, best_id)
+
+        result = {
+            "article_id": best_id,
+            "title": best_match.title,
+            "similarity": round(best_similarity, 3),
+            "relation": relation,
+            "reason": reason,
+            "group_name": group_name,
+            "auto_linked": should_auto_link,
+        }
+
+        return [result]
