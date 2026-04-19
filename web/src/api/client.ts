@@ -6,6 +6,7 @@ import type {
   Category,
   ChannelInfo,
   EmbeddingSettings,
+  PaginatedVersionGroups,
   QueueStatus,
   UpdateCandidate,
   VersionGroupDetail,
@@ -97,7 +98,16 @@ export const articleApi = {
 }
 
 export const versionApi = {
-  listGroups: () => get<VersionGroupDetail[]>('/versions/'),
+  listGroups: (params: { page?: number; size?: number; sort?: string; dir?: string; search?: string } = {}) => {
+    const qs = new URLSearchParams()
+    if (params.page) qs.set('page', String(params.page))
+    if (params.size) qs.set('size', String(params.size))
+    if (params.sort) qs.set('sort', params.sort)
+    if (params.dir) qs.set('dir', params.dir)
+    if (params.search) qs.set('search', params.search)
+    const suffix = qs.toString() ? `?${qs.toString()}` : ''
+    return get<PaginatedVersionGroups>(`/versions/${suffix}`)
+  },
   createGroup: (name: string, author?: string) =>
     post<{ id: number; name: string }>('/versions/', { name, author }),
   getGroup: (groupId: number) => get<VersionGroupDetail>(`/versions/${groupId}`),

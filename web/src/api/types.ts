@@ -156,6 +156,21 @@ export interface VersionGroupDetail {
   articles: VersionGroupArticle[]
 }
 
+export interface VersionGroupSummary {
+  id: number
+  name: string
+  author: string | null
+  article_count: number
+  latest_at: string | null
+}
+
+export interface PaginatedVersionGroups {
+  items: VersionGroupSummary[]
+  total: number
+  page: number
+  size: number
+}
+
 export interface UpdateCandidate {
   article_id: number
   title: string

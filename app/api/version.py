@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 from pydantic import BaseModel
+from sqlalchemy import text
 
 from app.db.engine import get_session
 from app.db.repository import (
@@ -15,6 +16,13 @@ from app.db.repository import (
     remove_article_from_group,
     update_version_group,
 )
+
+_SORT_COLUMN = {
+    "latest": "latest_at",
+    "count": "article_count",
+    "name": "vg.name COLLATE NOCASE",
+    "author": "vg.author COLLATE NOCASE",
+}
 
 
 class CreateGroupRequest(BaseModel):
@@ -35,31 +43,59 @@ def create_version_router(engine) -> APIRouter:
     router = APIRouter()
 
     @router.get("/")
-    async def list_groups():
+    async def list_groups(
+        page: int = 1,
+        size: int = 50,
+        sort: str = "latest",
+        dir: str = "desc",
+        search: str | None = None,
+    ):
+        """페이지네이션 + 정렬된 그룹 요약 리스트. 게시글은 포함하지 않음."""
+        size = max(1, min(size, 200))
+        page = max(1, page)
+        offset = (page - 1) * size
+        sort_col = _SORT_COLUMN.get(sort, _SORT_COLUMN["latest"])
+        direction = "ASC" if dir.lower() == "asc" else "DESC"
+        # NULL을 끝으로 밀기 위해 보조 정렬
+        order_clause = f"{sort_col} {direction}, vg.id DESC"
+
+        params: dict = {"limit": size, "offset": offset}
+        where = ""
+        if search:
+            where = (
+                "WHERE (vg.name LIKE :kw OR vg.id IN "
+                "(SELECT version_group_id FROM article WHERE title LIKE :kw AND version_group_id IS NOT NULL))"
+            )
+            params["kw"] = f"%{search}%"
+
         with get_session(engine) as session:
-            groups = get_all_version_groups(session)
-            result = []
-            for g in groups:
-                articles = get_articles_in_group(session, g.id)
-                result.append({
-                    "id": g.id,
-                    "name": g.name,
-                    "author": g.author,
-                    "article_count": len(articles),
-                    "articles": [
-                        {
-                            "id": a.id,
-                            "title": a.title,
-                            "author": a.author,
-                            "version_label": a.version_label,
-                            "backup_status": a.backup_status,
-                            "created_at": a.created_at.isoformat() if a.created_at else None,
-                            "channel_slug": a.channel_slug,
-                        }
-                        for a in articles
-                    ],
-                })
-            return result
+            base_sql = f"""
+                SELECT vg.id, vg.name, vg.author,
+                       COUNT(a.id) AS article_count,
+                       MAX(a.created_at) AS latest_at
+                FROM versiongroup AS vg
+                LEFT JOIN article AS a ON a.version_group_id = vg.id
+                {where}
+                GROUP BY vg.id
+                ORDER BY {order_clause}
+                LIMIT :limit OFFSET :offset
+            """
+            rows = session.execute(text(base_sql), params).fetchall()
+
+            count_sql = f"SELECT COUNT(*) FROM versiongroup AS vg {where}"
+            total = session.execute(text(count_sql), {k: v for k, v in params.items() if k == "kw"}).scalar() or 0
+
+            items = [
+                {
+                    "id": r[0],
+                    "name": r[1],
+                    "author": r[2],
+                    "article_count": r[3],
+                    "latest_at": r[4],
+                }
+                for r in rows
+            ]
+            return {"items": items, "total": total, "page": page, "size": size}
 
     @router.post("/")
     async def create_group(req: CreateGroupRequest):

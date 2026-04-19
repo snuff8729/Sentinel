@@ -34,6 +34,12 @@ def create_engine_and_tables(db_url: str | None = None):
     # vec0 가상 테이블은 임베딩 설정 시 동적으로 생성
     # (차원 수가 모델마다 다르므로 여기서 고정하지 않음)
 
+    # 자주 조회되는 외래키/필터 컬럼 인덱스 (idempotent)
+    with engine.connect() as conn:
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_article_version_group_id ON article(version_group_id)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_article_backup_status ON article(backup_status)"))
+        conn.commit()
+
     return engine
 
 
