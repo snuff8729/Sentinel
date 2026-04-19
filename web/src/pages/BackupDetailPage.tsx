@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { backupApi, versionApi } from '@/api/client'
-import type { ArticleLinkItem, BackupDetail, DownloadItem, VersionGroupDetail } from '@/api/types'
+import type { ArticleFileItem, ArticleLinkItem, BackupDetail, DownloadItem, VersionGroupDetail } from '@/api/types'
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   completed: { label: '완료', className: 'bg-green-100 text-green-700 border-green-300' },
@@ -182,55 +182,13 @@ export function BackupDetailPage() {
       )}
       {activeTab === 'files' && <FileList downloads={downloads} />}
       {activeTab === 'links' && (
-        <div className="space-y-6">
-          <LinkList links={links} articleSlug={article.channel_slug} articleId={article.id} onUpdate={refreshDetail} />
-
-          {/* 첨부 파일 */}
-          <div className="space-y-2">
-            <p className="text-sm font-medium">첨부 파일 ({files.length})</p>
-            {files.length > 0 && (
-              <div className="border rounded-md">
-                {files.map(f => (
-                  <div key={f.id} className="flex items-center gap-3 px-3 py-2 border-b last:border-b-0 text-sm hover:bg-muted/20">
-                    <span className="font-mono text-xs truncate flex-1">{f.filename}</span>
-                    <span className="text-xs text-muted-foreground">{(f.size / 1024).toFixed(1)}KB</span>
-                    {f.note && <span className="text-xs text-muted-foreground">{f.note}</span>}
-                    <button
-                      className="text-xs px-2 py-0.5 rounded border border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
-                      onClick={async () => {
-                        if (!confirm(`"${f.filename}" 파일을 삭제할까요?`)) return
-                        await backupApi.deleteFreeFile(f.id)
-                        refreshDetail()
-                      }}
-                    >
-                      삭제
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div>
-              <input
-                type="file"
-                id="free-file-upload"
-                className="hidden"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0]
-                  if (!file) return
-                  await backupApi.uploadFreeFile(article.id, file)
-                  refreshDetail()
-                  e.target.value = ''
-                }}
-              />
-              <label
-                htmlFor="free-file-upload"
-                className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded border border-dashed border-gray-300 text-muted-foreground hover:bg-muted cursor-pointer"
-              >
-                + 파일 추가
-              </label>
-            </div>
-          </div>
-        </div>
+        <ResourcesTab
+          links={links}
+          files={files}
+          articleId={article.id}
+          articleSlug={article.channel_slug}
+          onUpdate={refreshDetail}
+        />
       )}
       {activeTab === 'versions' && <VersionGroupPanel group={versionGroup} currentId={article.id} />}
     </div>
@@ -336,6 +294,118 @@ function LinkList({ links, articleSlug, articleId, onUpdate }: { links: ArticleL
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function ResourcesTab({ links, files, articleId, articleSlug, onUpdate }: {
+  links: ArticleLinkItem[]
+  files: ArticleFileItem[]
+  articleId: number
+  articleSlug: string
+  onUpdate: () => void
+}) {
+  const [dragging, setDragging] = useState(false)
+  const [uploading, setUploading] = useState(false)
+
+  const uploadFiles = useCallback(async (fileList: FileList | File[]) => {
+    setUploading(true)
+    try {
+      for (const file of Array.from(fileList)) {
+        await backupApi.uploadFreeFile(articleId, file)
+      }
+      onUpdate()
+    } catch (e) {
+      alert(`업로드 실패: ${e}`)
+    } finally {
+      setUploading(false)
+    }
+  }, [articleId, onUpdate])
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setDragging(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setDragging(false)
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setDragging(false)
+    if (e.dataTransfer.files.length > 0) {
+      uploadFiles(e.dataTransfer.files)
+    }
+  }, [uploadFiles])
+
+  return (
+    <div
+      className={`space-y-6 relative rounded-md transition-colors ${dragging ? 'bg-blue-50 ring-2 ring-blue-300 ring-dashed' : ''}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {dragging && (
+        <div className="absolute inset-0 flex items-center justify-center bg-blue-50/80 rounded-md z-10 pointer-events-none">
+          <p className="text-blue-600 font-medium">파일을 놓으면 업로드됩니다</p>
+        </div>
+      )}
+
+      {uploading && (
+        <div className="text-sm p-2 rounded border bg-blue-50 border-blue-200 text-blue-600">
+          업로드 중...
+        </div>
+      )}
+
+      <LinkList links={links} articleSlug={articleSlug} articleId={articleId} onUpdate={onUpdate} />
+
+      {/* 첨부 파일 */}
+      <div className="space-y-2">
+        <p className="text-sm font-medium">첨부 파일 ({files.length})</p>
+        {files.length > 0 && (
+          <div className="border rounded-md">
+            {files.map(f => (
+              <div key={f.id} className="flex items-center gap-3 px-3 py-2 border-b last:border-b-0 text-sm hover:bg-muted/20">
+                <span className="font-mono text-xs truncate flex-1">{f.filename}</span>
+                <span className="text-xs text-muted-foreground">{f.size >= 1024 * 1024 ? `${(f.size / 1024 / 1024).toFixed(1)}MB` : `${(f.size / 1024).toFixed(1)}KB`}</span>
+                {f.note && <span className="text-xs text-muted-foreground">{f.note}</span>}
+                <button
+                  className="text-xs px-2 py-0.5 rounded border border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
+                  onClick={async () => {
+                    if (!confirm(`"${f.filename}" 파일을 삭제할까요?`)) return
+                    await backupApi.deleteFreeFile(f.id)
+                    onUpdate()
+                  }}
+                >
+                  삭제
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div>
+          <input
+            type="file"
+            id="free-file-upload"
+            className="hidden"
+            multiple
+            onChange={async (e) => {
+              if (e.target.files && e.target.files.length > 0) {
+                await uploadFiles(e.target.files)
+              }
+              e.target.value = ''
+            }}
+          />
+          <label
+            htmlFor="free-file-upload"
+            className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded border border-dashed border-gray-300 text-muted-foreground hover:bg-muted cursor-pointer"
+          >
+            + 파일 추가 (또는 여기에 드래그)
+          </label>
+        </div>
+      </div>
     </div>
   )
 }
