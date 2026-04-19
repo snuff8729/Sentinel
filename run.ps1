@@ -1,17 +1,17 @@
-# Sentinel - 실행 스크립트
+# Sentinel - Run Script
 
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 $env:PYTHONIOENCODING = "utf-8"
 $ErrorActionPreference = "Stop"
+
 $ROOT = $PSScriptRoot
 $RUNTIME = Join-Path $ROOT "runtime"
 $UV_DIR = Join-Path $RUNTIME "uv"
 $NODE_DIR = Join-Path $RUNTIME "node"
 $UV = Join-Path $UV_DIR "uv.exe"
 
-# 설치 확인
 if (!(Test-Path $UV)) {
-    Write-Host "Sentinel이 설치되지 않았습니다. install.ps1을 먼저 실행해주세요." -ForegroundColor Red
+    Write-Host "Sentinel is not installed. Please run install.bat first." -ForegroundColor Red
     exit 1
 }
 
@@ -21,7 +21,7 @@ $env:PATH = "$NODE_DIR;$env:PATH"
 $PORT = if ($args[0]) { $args[0] } else { "8000" }
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  Sentinel 서버 시작" -ForegroundColor Cyan
+Write-Host "  Sentinel Server" -ForegroundColor Cyan
 Write-Host "  http://localhost:$PORT" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""

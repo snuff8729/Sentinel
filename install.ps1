@@ -1,22 +1,23 @@
-# Sentinel - 설치 스크립트
-# 내장 Python(uv 관리) + 내장 Node.js로 외부 종속성 없이 설치
+# Sentinel - Install Script
+# Embedded Python (via uv) + Embedded Node.js
 
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 $env:PYTHONIOENCODING = "utf-8"
 $ErrorActionPreference = "Stop"
+
 $ROOT = $PSScriptRoot
 $RUNTIME = Join-Path $ROOT "runtime"
 $UV_DIR = Join-Path $RUNTIME "uv"
 $NODE_DIR = Join-Path $RUNTIME "node"
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  Sentinel 설치" -ForegroundColor Cyan
+Write-Host "  Sentinel - Install" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# --- 1. uv 설치 (Python 패키지 매니저) ---
+# --- 1. Install uv ---
 if (!(Test-Path (Join-Path $UV_DIR "uv.exe"))) {
-    Write-Host "[1/5] uv 다운로드 중..." -ForegroundColor Yellow
+    Write-Host "[1/5] Downloading uv..." -ForegroundColor Yellow
     New-Item -ItemType Directory -Force -Path $UV_DIR | Out-Null
 
     $UV_VERSION = "0.7.12"
@@ -25,32 +26,31 @@ if (!(Test-Path (Join-Path $UV_DIR "uv.exe"))) {
 
     Invoke-WebRequest -Uri $UV_URL -OutFile $UV_ZIP
     Expand-Archive -Path $UV_ZIP -DestinationPath $UV_DIR -Force
-    # zip 내부에 폴더가 있을 수 있음
     $inner = Get-ChildItem $UV_DIR -Directory | Select-Object -First 1
     if ($inner -and (Test-Path (Join-Path $inner.FullName "uv.exe"))) {
         Move-Item (Join-Path $inner.FullName "*") $UV_DIR -Force
         Remove-Item $inner.FullName -Recurse -Force
     }
     Remove-Item $UV_ZIP -Force
-    Write-Host "  uv 설치 완료" -ForegroundColor Green
+    Write-Host "  uv installed" -ForegroundColor Green
 } else {
-    Write-Host "[1/5] uv 이미 설치됨" -ForegroundColor Green
+    Write-Host "[1/5] uv already installed" -ForegroundColor Green
 }
 
 $UV = Join-Path $UV_DIR "uv.exe"
 
-# --- 2. Python 설치 (uv 관리) ---
-Write-Host "[2/5] Python 설치 중..." -ForegroundColor Yellow
+# --- 2. Install Python (managed by uv) ---
+Write-Host "[2/5] Installing Python..." -ForegroundColor Yellow
 $env:UV_PYTHON_INSTALL_DIR = Join-Path $RUNTIME "python"
 & $UV python install 3.14 --quiet 2>$null
 if ($LASTEXITCODE -ne 0) {
     & $UV python install 3.13 --quiet
 }
-Write-Host "  Python 설치 완료" -ForegroundColor Green
+Write-Host "  Python installed" -ForegroundColor Green
 
-# --- 3. Node.js 설치 ---
+# --- 3. Install Node.js ---
 if (!(Test-Path (Join-Path $NODE_DIR "node.exe"))) {
-    Write-Host "[3/5] Node.js 다운로드 중..." -ForegroundColor Yellow
+    Write-Host "[3/5] Downloading Node.js..." -ForegroundColor Yellow
     New-Item -ItemType Directory -Force -Path $NODE_DIR | Out-Null
 
     $NODE_VERSION = "v22.16.0"
@@ -65,40 +65,39 @@ if (!(Test-Path (Join-Path $NODE_DIR "node.exe"))) {
         Remove-Item $extracted -Recurse -Force
     }
     Remove-Item $NODE_ZIP -Force
-    Write-Host "  Node.js 설치 완료" -ForegroundColor Green
+    Write-Host "  Node.js installed" -ForegroundColor Green
 } else {
-    Write-Host "[3/5] Node.js 이미 설치됨" -ForegroundColor Green
+    Write-Host "[3/5] Node.js already installed" -ForegroundColor Green
 }
 
-$NODE = Join-Path $NODE_DIR "node.exe"
 $NPM = Join-Path $NODE_DIR "npm.cmd"
 
-# --- 4. Python 의존성 설치 ---
-Write-Host "[4/5] Python 의존성 설치 중..." -ForegroundColor Yellow
+# --- 4. Install Python dependencies ---
+Write-Host "[4/5] Installing Python dependencies..." -ForegroundColor Yellow
 Push-Location $ROOT
 & $UV sync --quiet
 Pop-Location
-Write-Host "  Python 의존성 설치 완료" -ForegroundColor Green
+Write-Host "  Dependencies installed" -ForegroundColor Green
 
-# --- 5. 프론트엔드 빌드 ---
-Write-Host "[5/5] 프론트엔드 빌드 중..." -ForegroundColor Yellow
+# --- 5. Build frontend ---
+Write-Host "[5/5] Building frontend..." -ForegroundColor Yellow
 $env:PATH = "$NODE_DIR;$env:PATH"
 Push-Location (Join-Path $ROOT "web")
 & $NPM install --silent 2>$null
 & $NPM run build 2>$null
 Pop-Location
-Write-Host "  프론트엔드 빌드 완료" -ForegroundColor Green
+Write-Host "  Frontend built" -ForegroundColor Green
 
-# --- .env 생성 ---
+# --- Create .env ---
 $ENV_FILE = Join-Path $ROOT ".env"
 if (!(Test-Path $ENV_FILE)) {
     Copy-Item (Join-Path $ROOT ".env.example") $ENV_FILE
     Write-Host ""
-    Write-Host "  .env 파일이 생성되었습니다." -ForegroundColor Yellow
-    Write-Host "  arca.live 쿠키를 .env 파일에 설정해주세요." -ForegroundColor Yellow
+    Write-Host "  .env file created." -ForegroundColor Yellow
+    Write-Host "  Please set your arca.live cookies in .env" -ForegroundColor Yellow
 }
 
-# --- data 디렉토리 생성 ---
+# --- Create data directory ---
 $DATA_DIR = Join-Path $ROOT "data"
 if (!(Test-Path $DATA_DIR)) {
     New-Item -ItemType Directory -Force -Path $DATA_DIR | Out-Null
@@ -106,6 +105,6 @@ if (!(Test-Path $DATA_DIR)) {
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  설치 완료!" -ForegroundColor Cyan
-Write-Host "  run.ps1 을 실행하여 서버를 시작하세요." -ForegroundColor Cyan
+Write-Host "  Install complete!" -ForegroundColor Cyan
+Write-Host "  Run run.bat to start the server." -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
