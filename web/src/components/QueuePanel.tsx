@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -42,7 +43,7 @@ export function QueuePanel({ paused, current, pending, onPause, onResume, onCanc
           {current ? (
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="font-medium">{current.title}</span>
+                <Link to={`/backup/${current.article_id}`} className="font-medium hover:underline">{current.title}</Link>
                 <span className="text-muted-foreground">{current.current}/{current.total}</span>
               </div>
               <div className="w-full bg-secondary rounded-full h-2">
@@ -72,8 +73,10 @@ export function QueuePanel({ paused, current, pending, onPause, onResume, onCanc
               {pending.map((item, i) => (
                 <div key={item.article_id} className="flex justify-between items-center py-1">
                   <span className="text-sm">
-                    {i + 1}. [{item.channel_slug}] #{item.article_id}
-                    {item.title && ` — ${item.title}`}
+                    {i + 1}. [{item.channel_slug}]{' '}
+                    <Link to={`/article/${item.channel_slug}/${item.article_id}`} className="hover:underline">
+                      #{item.article_id}{item.title && ` — ${item.title}`}
+                    </Link>
                   </span>
                   <Button
                     variant="ghost"

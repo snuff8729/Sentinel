@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { QueuePanel } from '@/components/QueuePanel'
 import { backupApi } from '@/api/client'
 import { useSSE } from '@/hooks/useSSE'
@@ -100,7 +101,7 @@ export function QueuePage() {
           <h2 className="text-lg font-semibold">최근 완료</h2>
           {completed.map(item => (
             <div key={`${item.article_id}-${item.timestamp}`} className="flex justify-between text-sm py-1 border-b">
-              <span>{item.title}</span>
+              <Link to={`/backup/${item.article_id}`} className="hover:underline">{item.title}</Link>
               <span className="text-muted-foreground">
                 {item.success_count} 성공
                 {item.fail_count > 0 && `, ${item.fail_count} 실패`}
