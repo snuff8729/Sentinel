@@ -70,7 +70,17 @@ export function ChannelPage() {
   const page = Number(searchParams.get('page') || '1')
   const keyword = searchParams.get('keyword') || undefined
   const target = searchParams.get('target') || undefined
-  const updateDetectEnabled = searchParams.get('detect') === '1'
+
+  // 업데이트 감지: 채널+카테고리별 localStorage 저장
+  const detectKey = `sentinel_detect_${slug}_${category || '_all'}`
+  const [updateDetectEnabled, setUpdateDetectEnabled] = useState(() => {
+    try { return localStorage.getItem(detectKey) === '1' } catch { return false }
+  })
+
+  useEffect(() => {
+    const key = `sentinel_detect_${slug}_${category || '_all'}`
+    try { setUpdateDetectEnabled(localStorage.getItem(key) === '1') } catch { setUpdateDetectEnabled(false) }
+  }, [slug, category])
 
   useEffect(() => {
     if (!slug) return
@@ -255,9 +265,11 @@ export function ChannelPage() {
                 setUpdateDetectError('임베딩이 설정되지 않았습니다. 설정 페이지에서 구성해주세요.')
                 return
               }
-              updateParams({ detect: '1' })
+              setUpdateDetectEnabled(true)
+              try { localStorage.setItem(detectKey, '1') } catch {}
             } else {
-              updateParams({ detect: undefined })
+              setUpdateDetectEnabled(false)
+              try { localStorage.removeItem(detectKey) } catch {}
               setUpdateDetectError('')
               setUpdateCandidates({})
             }
