@@ -27,7 +27,7 @@ export function ChannelPage() {
   const [keywordInput, setKeywordInput] = useState('')
   const [targetInput, setTargetInput] = useState('전체')
   const [loading, setLoading] = useState(false)
-  const [backupStatuses, setBackupStatuses] = useState<Record<string, string>>({})
+  const [backupStatuses, setBackupStatuses] = useState<Record<string, { status: string; group_name: string | null; group_id: number | null }>>({})
   const [followedUsers, setFollowedUsers] = useState<Set<string>>(new Set())
   const [updateCandidates, setUpdateCandidates] = useState<Record<number, { matched_title: string; group_name: string | null; reason: string }>>({})
   const [updateDetecting, setUpdateDetecting] = useState(false)
@@ -48,7 +48,10 @@ export function ChannelPage() {
 
   // SSE로 백업 상태 실시간 업데이트
   const updateStatus = useCallback((articleId: number, status: string) => {
-    setBackupStatuses(prev => ({ ...prev, [String(articleId)]: status }))
+    setBackupStatuses(prev => ({
+      ...prev,
+      [String(articleId)]: { ...prev[String(articleId)], status, group_name: prev[String(articleId)]?.group_name ?? null, group_id: prev[String(articleId)]?.group_id ?? null },
+    }))
   }, [])
 
   useSSE('/api/backup/events', {
@@ -192,7 +195,7 @@ export function ChannelPage() {
   const handleToggleAll = () => {
     if (!data) return
     const selectable = data.articles.filter(a => {
-      const s = backupStatuses[String(a.id)]
+      const s = backupStatuses[String(a.id)]?.status
       return s !== 'completed' && s !== 'in_progress' && s !== 'pending'
     })
     const allSelected = selectable.length > 0 && selectable.every(a => selected.has(a.id))

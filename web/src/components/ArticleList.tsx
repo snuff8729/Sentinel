@@ -9,7 +9,7 @@ interface Props {
   selected: Set<number>
   onToggle: (id: number) => void
   onToggleAll: () => void
-  backupStatuses?: Record<string, string>
+  backupStatuses?: Record<string, { status: string; group_name: string | null; group_id: number | null }>
   onSearchAuthor?: (author: string) => void
   followedUsers?: Set<string>
   onToggleFollow?: (username: string) => void
@@ -40,8 +40,10 @@ export function ArticleList({
       </div>
 
       {articles.map((article) => {
-        const status = backupStatuses[String(article.id)]
+        const backupInfo = backupStatuses[String(article.id)]
+        const status = backupInfo?.status
         const badgeInfo = status ? STATUS_BADGE[status] : null
+        const groupName = backupInfo?.group_name
         const isFollowed = followedUsers.has(article.author)
         const update = updateCandidates[article.id]
         const isQueued = status === 'completed' || status === 'in_progress' || status === 'pending'
@@ -71,14 +73,20 @@ export function ArticleList({
                     {badgeInfo.label}
                   </span>
                 )}
-                {update && (
+                {update ? (
                   <span
                     className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle bg-orange-100 text-orange-700 border-orange-300"
                     title={`${update.reason} — 기존: ${update.matched_title}`}
                   >
                     🔄 {update.group_name || '업데이트'}
                   </span>
-                )}
+                ) : groupName ? (
+                  <span
+                    className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle bg-purple-100 text-purple-700 border-purple-300"
+                  >
+                    📦 {groupName}
+                  </span>
+                ) : null}
                 {article.category && (
                   <Badge variant="secondary" className="mr-1.5 text-xs align-middle">
                     {article.category}

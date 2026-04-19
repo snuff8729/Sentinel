@@ -57,13 +57,22 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
     async def get_backup_statuses(ids: list[int] = Body(...)):
         from app.db.engine import get_session
         from app.db.repository import get_article
+        from app.db.models import VersionGroup
         _engine = engine or worker._service._engine
         with get_session(_engine) as session:
-            result: dict[str, str] = {}
+            result: dict[str, dict] = {}
             for article_id in ids:
                 article = get_article(session, article_id)
                 if article:
-                    result[str(article_id)] = article.backup_status
+                    group_name = None
+                    if article.version_group_id:
+                        group = session.get(VersionGroup, article.version_group_id)
+                        group_name = group.name if group else None
+                    result[str(article_id)] = {
+                        "status": article.backup_status,
+                        "group_name": group_name,
+                        "group_id": article.version_group_id,
+                    }
             return result
 
     @router.get("/detail/{article_id}")
