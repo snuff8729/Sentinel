@@ -87,6 +87,20 @@ export function BackupDetailPage() {
 
       {/* 액션 */}
       <div className="flex items-center gap-2">
+        {article.download_complete ? (
+          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium border bg-emerald-100 text-emerald-700 border-emerald-300">
+            다운로드 완료
+          </span>
+        ) : links.some(l => l.type === 'download') && (
+          <Button size="sm" variant="outline" onClick={async () => {
+            await backupApi.markDownloadComplete(article.id)
+            backupApi.getDetail(article.id).then(d => {
+              setDetail(d)
+            })
+          }}>
+            다운로드 완료 처리
+          </Button>
+        )}
         <Button size="sm" variant="outline" onClick={handleRetry}>재시도</Button>
         <Link to={`/article/${article.channel_slug}/${article.id}`}>
           <Button size="sm" variant="outline">원본 보기 (arca.live)</Button>

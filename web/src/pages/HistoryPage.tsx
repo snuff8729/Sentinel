@@ -117,6 +117,13 @@ export function HistoryPage() {
         ))}
       </div>
 
+      {/* 수동 다운로드 대기 요약 */}
+      {!loading && items.some(i => i.backup_status === 'completed' && !i.download_complete && i.analysis_status !== 'none') && (
+        <div className="text-sm p-3 rounded border bg-amber-50 border-amber-200 text-amber-700">
+          ⚠ 수동 다운로드가 필요한 항목이 {items.filter(i => i.backup_status === 'completed' && !i.download_complete && i.analysis_status !== 'none').length}개 있습니다.
+        </div>
+      )}
+
       {loading ? (
         <div className="text-center py-8 text-muted-foreground">로딩 중...</div>
       ) : items.length === 0 ? (
@@ -156,6 +163,16 @@ export function HistoryPage() {
                       {item.analysis_status === 'failed' && (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle bg-orange-100 text-orange-700 border-orange-300">
                           분석실패
+                        </span>
+                      )}
+                      {item.backup_status === 'completed' && item.download_complete === false && item.analysis_status !== 'none' && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle bg-red-100 text-red-700 border-red-300">
+                          다운로드 미완료
+                        </span>
+                      )}
+                      {item.download_complete && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle bg-emerald-100 text-emerald-700 border-emerald-300">
+                          다운로드 완료
                         </span>
                       )}
                       <Link

@@ -157,6 +157,9 @@ export const backupApi = {
   getHistory: (status?: string) =>
     get<BackupHistoryItem[]>(`/backup/history${status ? `?status=${status}` : ''}`),
 
+  markDownloadComplete: (articleId: number) =>
+    post<{ status: string }>(`/backup/complete-download/${articleId}`),
+
   uploadFile: async (articleId: number, file: File, linkId?: number) => {
     const formData = new FormData()
     formData.append('file', file)

@@ -180,6 +180,29 @@ class BackupWorker:
                     session.add(db_link)
                     session.commit()
 
+        # 전체 자동 완료 체크
+        self._check_download_complete(article_id)
+
+    def _check_download_complete(self, article_id: int) -> None:
+        """모든 다운로드 링크가 completed이면 download_complete = True."""
+        from app.db.engine import get_session
+        from app.db.repository import get_links_for_article
+
+        with get_session(self._service._engine) as session:
+            links = get_links_for_article(session, article_id)
+            download_links = [l for l in links if l.link_type == "download"]
+            if not download_links:
+                return
+            all_done = all(l.download_status == "completed" for l in download_links)
+            if all_done:
+                from app.db.models import Article
+                article = session.get(Article, article_id)
+                if article:
+                    article.download_complete = True
+                    session.add(article)
+                    session.commit()
+                    logger.info("[%d] 모든 외부 다운로드 완료", article_id)
+
     def _queue_snapshot(self) -> dict:
         return {
             "queue": [

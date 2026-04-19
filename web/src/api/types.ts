@@ -78,6 +78,7 @@ export interface BackupHistoryItem {
   analysis_error?: string | null
   version_group_id?: number | null
   version_label?: string | null
+  download_complete?: boolean
 }
 
 export interface DownloadItem {

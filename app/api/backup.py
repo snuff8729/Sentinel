@@ -49,6 +49,7 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
                     "backed_up_at": a.backed_up_at.isoformat() if a.backed_up_at else None,
                     "analysis_status": a.analysis_status,
                     "analysis_error": a.analysis_error,
+                    "download_complete": a.download_complete,
                 }
                 for a in articles
             ]
@@ -111,6 +112,7 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
                     "analysis_error": article.analysis_error,
                     "version_group_id": article.version_group_id,
                     "version_label": article.version_label,
+                    "download_complete": article.download_complete,
                 },
                 "downloads": [
                     {
@@ -184,12 +186,42 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
                     session.add(link)
                     session.commit()
 
+        # 전체 완료 체크
+        _engine = engine or worker._service._engine
+        from app.db.engine import get_session as _gs
+        from app.db.repository import get_links_for_article as _gl
+        with _gs(_engine) as session:
+            all_links = _gl(session, article_id)
+            dl_links = [l for l in all_links if l.link_type == "download"]
+            if dl_links and all(l.download_status == "completed" for l in dl_links):
+                from app.db.models import Article as _A
+                art = session.get(_A, article_id)
+                if art:
+                    art.download_complete = True
+                    session.add(art)
+                    session.commit()
+
         return {
             "status": "uploaded",
             "filename": filename,
             "local_path": local_path,
             "size_kb": round(size_kb, 1),
         }
+
+    @router.post("/complete-download/{article_id}")
+    async def mark_download_complete(article_id: int):
+        """수동으로 외부 다운로드 완료 처리."""
+        from app.db.engine import get_session
+        from app.db.models import Article
+        _engine = engine or worker._service._engine
+        with get_session(_engine) as session:
+            article = session.get(Article, article_id)
+            if not article:
+                return {"error": "not found"}
+            article.download_complete = True
+            session.add(article)
+            session.commit()
+        return {"status": "completed"}
 
     @router.get("/html/{article_id}")
     async def get_backup_html(article_id: int):

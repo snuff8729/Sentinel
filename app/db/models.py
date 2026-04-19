@@ -21,6 +21,7 @@ class Article(SQLModel, table=True):
     backed_up_at: datetime | None = None
     analysis_status: str = Field(default="none")
     analysis_error: str | None = None
+    download_complete: bool = Field(default=False)  # 외부 다운로드 전체 완료 여부
     version_group_id: int | None = Field(default=None, foreign_key="versiongroup.id")
     version_label: str | None = None  # "v1.04", "1.05 업데이트" 등
 
