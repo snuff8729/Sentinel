@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ArticleList } from '@/components/ArticleList'
-import { channelApi, backupApi, followApi } from '@/api/client'
+import { channelApi, backupApi, followApi, settingsApi } from '@/api/client'
 import type { ArticleList as ArticleListType, Category, ChannelInfo } from '@/api/types'
 import { addRecentChannel } from '@/lib/recentChannels'
 import { useSSE } from '@/hooks/useSSE'
@@ -32,6 +32,7 @@ export function ChannelPage() {
   const [updateCandidates, setUpdateCandidates] = useState<Record<number, { matched_title: string; group_name: string | null; reason: string }>>({})
   const [updateDetectEnabled, setUpdateDetectEnabled] = useState(false)
   const [updateDetecting, setUpdateDetecting] = useState(false)
+  const [updateDetectError, setUpdateDetectError] = useState('')
 
   const SEARCH_TARGETS: Record<string, string> = {
     '전체': 'all',
@@ -238,7 +239,18 @@ export function ChannelPage() {
         <Button
           variant={updateDetectEnabled ? 'default' : 'outline'}
           size="sm"
-          onClick={() => setUpdateDetectEnabled(!updateDetectEnabled)}
+          onClick={async () => {
+            if (!updateDetectEnabled) {
+              setUpdateDetectError('')
+              const embedding = await settingsApi.getEmbedding()
+              if (!embedding.base_url) {
+                setUpdateDetectError('임베딩이 설정되지 않았습니다. 설정 페이지에서 구성해주세요.')
+                return
+              }
+            }
+            setUpdateDetectEnabled(!updateDetectEnabled)
+            if (updateDetectEnabled) setUpdateDetectError('')
+          }}
           disabled={updateDetecting}
         >
           {updateDetecting ? '감지 중...' : updateDetectEnabled ? '🔄 업데이트 감지 ON' : '업데이트 감지'}
@@ -269,6 +281,13 @@ export function ChannelPage() {
           )}
         </form>
       </div>
+
+      {updateDetectError && (
+        <div className="text-sm p-3 rounded border bg-yellow-50 border-yellow-200 text-yellow-700 flex items-center gap-2">
+          <span>⚠ {updateDetectError}</span>
+          <a href="/settings" className="text-blue-600 hover:underline text-xs">설정으로 이동</a>
+        </div>
+      )}
 
       {selected.size > 0 && (
         <div className="flex items-center gap-2 p-2 bg-muted rounded">
