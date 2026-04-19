@@ -24,9 +24,20 @@ app = FastAPI(title="Sentinel")
 worker: BackupWorker | None = None
 
 
+def _silence_proactor_connection_reset(loop, context):
+    """Windows ProactorEventLoop에서 클라이언트가 먼저 끊을 때 발생하는 무해한 ConnectionResetError 무시.
+    이미 응답은 정상 전송됐고, 소켓 shutdown() 단계에서 원격 RST를 만났을 뿐임."""
+    exc = context.get("exception")
+    msg = context.get("message", "")
+    if isinstance(exc, ConnectionResetError) and "_call_connection_lost" in msg:
+        return
+    loop.default_exception_handler(context)
+
+
 @app.on_event("startup")
 async def startup():
     global worker
+    asyncio.get_running_loop().set_exception_handler(_silence_proactor_connection_reset)
     engine = create_engine_and_tables()
     client = ArcaClient()
     event_bus = EventBus()

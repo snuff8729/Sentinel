@@ -128,13 +128,17 @@ class BackupWorker:
                         logger.error("External download failed for %d: %s", req.article_id, e)
                 if self._version_detector:
                     try:
-                        if await self._version_detector.generate_embedding(req.article_id):
+                        embedding_ok = await self._version_detector.generate_embedding(req.article_id)
+                        # 재시도(force=True)일 땐 기존 버전 그룹을 그대로 유지해야 하므로 자동 연결 스킵
+                        if embedding_ok and not req.force:
                             related = await self._version_detector.find_related(req.article_id)
                             if related:
                                 for r in related:
                                     if r["relation"] in ("new_version", "same_series"):
                                         logger.info("[%d] 관련 게시글 발견: #%d (%s) — %s",
                                             req.article_id, r["article_id"], r["relation"], r["reason"])
+                        elif embedding_ok and req.force:
+                            logger.info("[%d] 재시도 — 자동 버전 그룹 연결 스킵", req.article_id)
                     except Exception as e:
                         logger.error("Version detection failed for %d: %s", req.article_id, e)
             except Exception as e:
