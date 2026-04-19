@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import json
 import logging
-import math
 
 import httpx
 
@@ -45,20 +43,3 @@ class EmbeddingClient:
             return {"success": False, "error": str(e)}
 
 
-def cosine_similarity(a: list[float], b: list[float]) -> float:
-    if len(a) != len(b):
-        return 0.0
-    dot = sum(x * y for x, y in zip(a, b))
-    norm_a = math.sqrt(sum(x * x for x in a))
-    norm_b = math.sqrt(sum(x * x for x in b))
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-    return dot / (norm_a * norm_b)
-
-
-def embedding_to_json(vec: list[float]) -> str:
-    return json.dumps(vec)
-
-
-def json_to_embedding(s: str) -> list[float]:
-    return json.loads(s)

@@ -137,6 +137,47 @@ def get_followed_usernames(session: Session) -> set[str]:
     return {u.username for u in users}
 
 
+def store_embedding(session: Session, article_id: int, embedding: list[float]) -> None:
+    import json
+    from sqlalchemy import text
+    dim = len(embedding)
+    vec_json = json.dumps(embedding)
+    # 가상 테이블이 없으면 생성
+    session.execute(text(
+        f"CREATE VIRTUAL TABLE IF NOT EXISTS article_vec USING vec0(article_id INTEGER PRIMARY KEY, embedding float[{dim}])"
+    ))
+    # upsert: delete + insert
+    session.execute(text("DELETE FROM article_vec WHERE article_id = :id"), {"id": article_id})
+    session.execute(
+        text("INSERT INTO article_vec (article_id, embedding) VALUES (:id, :vec)"),
+        {"id": article_id, "vec": vec_json},
+    )
+    session.commit()
+
+
+def search_similar_articles(session: Session, embedding: list[float], author: str, exclude_id: int, limit: int = 5) -> list[tuple[int, float]]:
+    """임베딩 유사도로 같은 작성자의 유사 게시글 검색. (article_id, distance) 리스트 반환."""
+    import json
+    from sqlalchemy import text
+    vec_json = json.dumps(embedding)
+    # article_vec에서 KNN 검색 후 author 필터 (join)
+    results = session.execute(
+        text("""
+            SELECT av.article_id, av.distance
+            FROM article_vec AS av
+            JOIN article ON article.id = av.article_id
+            WHERE av.embedding MATCH :vec
+              AND av.k = :limit_k
+              AND article.author = :author
+              AND av.article_id != :exclude_id
+            ORDER BY av.distance
+            LIMIT :limit_n
+        """),
+        {"vec": vec_json, "limit_k": limit * 5, "author": author, "exclude_id": exclude_id, "limit_n": limit},
+    ).fetchall()
+    return [(row[0], row[1]) for row in results]
+
+
 def get_setting(session: Session, key: str) -> str | None:
     setting = session.get(Setting, key)
     return setting.value if setting else None

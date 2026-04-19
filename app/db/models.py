@@ -15,7 +15,6 @@ class Article(SQLModel, table=True):
     backed_up_at: datetime | None = None
     analysis_status: str = Field(default="none")  # "none" | "pending" | "completed" | "failed"
     analysis_error: str | None = None
-    embedding: str | None = None  # JSON serialized float list
 
 class FollowedUser(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
