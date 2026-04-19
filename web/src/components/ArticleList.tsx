@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { ArticleRow } from '@/api/types'
@@ -10,6 +10,7 @@ interface Props {
   onToggle: (id: number) => void
   onToggleAll: () => void
   backupStatuses?: Record<string, string>
+  onSearchAuthor?: (author: string) => void
 }
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
@@ -20,7 +21,7 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   cancelled: { label: '취소', className: 'bg-gray-100 text-gray-500 border-gray-300' },
 }
 
-export function ArticleList({ slug, articles, selected, onToggle, onToggleAll, backupStatuses = {} }: Props) {
+export function ArticleList({ slug, articles, selected, onToggle, onToggleAll, backupStatuses = {}, onSearchAuthor }: Props) {
   const allSelected = articles.length > 0 && articles.every(a => selected.has(a.id))
 
   return (
@@ -70,7 +71,15 @@ export function ArticleList({ slug, articles, selected, onToggle, onToggleAll, b
                 {article.is_best && (
                   <span className="text-yellow-500">★</span>
                 )}
-                <span>{article.author}</span>
+                <button
+                  className="hover:underline hover:text-foreground"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onSearchAuthor?.(article.author)
+                  }}
+                >
+                  {article.author}
+                </button>
                 <span>·</span>
                 <span>{new Date(article.created_at).toLocaleDateString('ko-KR')}</span>
                 <span>·</span>

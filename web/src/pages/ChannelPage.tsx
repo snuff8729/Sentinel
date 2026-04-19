@@ -87,13 +87,31 @@ export function ChannelPage() {
       .finally(() => setLoading(false))
   }, [slug, category, mode, page])
 
+  const doSearch = (searchKeyword: string, target: string) => {
+    if (!slug || !searchKeyword.trim()) return
+    setLoading(true)
+    channelApi.search(slug, searchKeyword, target)
+      .then(result => {
+        setData(result)
+        const ids = result.articles.map(a => a.id)
+        if (ids.length > 0) {
+          backupApi.getStatuses(ids).then(setBackupStatuses)
+        } else {
+          setBackupStatuses({})
+        }
+      })
+      .finally(() => setLoading(false))
+  }
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!slug || !keyword.trim()) return
-    setLoading(true)
-    channelApi.search(slug, keyword, SEARCH_TARGETS[searchTarget] || 'all')
-      .then(setData)
-      .finally(() => setLoading(false))
+    doSearch(keyword, SEARCH_TARGETS[searchTarget] || 'all')
+  }
+
+  const handleSearchAuthor = (author: string) => {
+    setKeyword(author)
+    setSearchTarget('글쓴이')
+    doSearch(author, 'nickname')
   }
 
   const updateParams = (updates: Record<string, string | undefined>) => {
@@ -223,6 +241,7 @@ export function ChannelPage() {
             onToggle={handleToggle}
             onToggleAll={handleToggleAll}
             backupStatuses={backupStatuses}
+            onSearchAuthor={handleSearchAuthor}
           />
           <div className="flex justify-center gap-1">
             {Array.from({ length: data.total_pages }, (_, i) => i + 1).map(p => (
