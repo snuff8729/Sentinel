@@ -26,9 +26,9 @@ def extract_backup_html(html: str) -> str:
     # 댓글
     comments = soup.select_one("#comment, .article-comment")
 
-    # 댓글 쓰기 폼/버튼/글쓰기 링크 제거
+    # 댓글 쓰기 폼/버튼/글쓰기 링크/아바타 제거
     if comments:
-        for el in comments.select("form, .btn-arca-article-write, .reply-form"):
+        for el in comments.select("form, .btn-arca-article-write, .reply-form, .avatar"):
             el.decompose()
 
     parts = []
@@ -70,6 +70,10 @@ def extract_media_from_html(html: str, article_id: int) -> list[MediaItem]:
     for img in all_imgs:
         src = img.get("src", "")
         if not src:
+            continue
+        # 아바타 이미지 제외
+        parent = img.parent
+        if parent and "avatar" in " ".join(parent.get("class", [])):
             continue
         url = _normalize_url(src)
         url_key = _url_path_key(url)
