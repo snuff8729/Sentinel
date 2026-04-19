@@ -176,11 +176,15 @@ export function ChannelPage() {
 
   const handleToggleAll = () => {
     if (!data) return
-    const allSelected = data.articles.every(a => selected.has(a.id))
+    const selectable = data.articles.filter(a => {
+      const s = backupStatuses[String(a.id)]
+      return s !== 'completed' && s !== 'in_progress' && s !== 'pending'
+    })
+    const allSelected = selectable.length > 0 && selectable.every(a => selected.has(a.id))
     if (allSelected) {
       setSelected(new Set())
     } else {
-      setSelected(new Set(data.articles.map(a => a.id)))
+      setSelected(new Set(selectable.map(a => a.id)))
     }
   }
 

@@ -44,6 +44,7 @@ export function ArticleList({
         const badgeInfo = status ? STATUS_BADGE[status] : null
         const isFollowed = followedUsers.has(article.author)
         const update = updateCandidates[article.id]
+        const isQueued = status === 'completed' || status === 'in_progress' || status === 'pending'
 
         return (
           <div
@@ -55,7 +56,8 @@ export function ArticleList({
             <div className="pt-0.5">
               <Checkbox
                 checked={selected.has(article.id)}
-                onCheckedChange={() => onToggle(article.id)}
+                onCheckedChange={() => !isQueued && onToggle(article.id)}
+                disabled={isQueued}
               />
             </div>
             <div className="flex-1 min-w-0">
