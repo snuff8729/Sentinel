@@ -4,6 +4,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 
+from app.backup.downloader import ExternalDownloader
 from app.backup.events import Event, EventBus
 from app.backup.service import BackupService
 from app.llm.service import LinkAnalysisService
@@ -20,11 +21,12 @@ class BackupRequest:
 
 
 class BackupWorker:
-    def __init__(self, service: BackupService, event_bus: EventBus, link_analysis: LinkAnalysisService | None = None, version_detector: VersionDetector | None = None):
+    def __init__(self, service: BackupService, event_bus: EventBus, link_analysis: LinkAnalysisService | None = None, version_detector: VersionDetector | None = None, downloader: ExternalDownloader | None = None):
         self._service = service
         self._event_bus = event_bus
         self._link_analysis = link_analysis
         self._version_detector = version_detector
+        self._downloader = downloader
         self._queue: asyncio.Queue[BackupRequest] = asyncio.Queue()
         self._pause_event = asyncio.Event()
         self._pause_event.set()
@@ -118,6 +120,12 @@ class BackupWorker:
                         await self._link_analysis.analyze_article(req.article_id, req.channel_slug)
                     except Exception as e:
                         logger.error("Link analysis failed for %d: %s", req.article_id, e)
+                # 외부 다운로드 링크 자동 다운로드
+                if self._downloader:
+                    try:
+                        await self._download_external_links(req.article_id)
+                    except Exception as e:
+                        logger.error("External download failed for %d: %s", req.article_id, e)
                 if self._version_detector:
                     try:
                         if await self._version_detector.generate_embedding(req.article_id):
@@ -134,6 +142,43 @@ class BackupWorker:
 
             self._current = None
             self._queue.task_done()
+
+    async def _download_external_links(self, article_id: int) -> None:
+        """다운로드 타입 링크를 자동으로 다운로드."""
+        from app.db.engine import get_session
+        from app.db.repository import get_links_for_article
+        from app.db.models import ArticleLink
+
+        with get_session(self._service._engine) as session:
+            links = get_links_for_article(session, article_id)
+            download_links = [l for l in links if l.link_type == "download" and not l.download_status]
+
+        if not download_links:
+            return
+
+        logger.info("[%d] 외부 다운로드 %d개 시작", article_id, len(download_links))
+
+        for link in download_links:
+            result = await self._downloader.download(link.url, article_id)
+
+            with get_session(self._service._engine) as session:
+                db_link = session.get(ArticleLink, link.id)
+                if db_link:
+                    if result["success"]:
+                        db_link.download_status = "completed"
+                        db_link.download_path = result["local_path"]
+                        logger.info("[%d] 외부 다운로드 완료: %s (%.1fKB)",
+                            article_id, result["filename"], result["size"] / 1024)
+                    elif result["manual_required"]:
+                        db_link.download_status = "manual_required"
+                        db_link.download_error = result["error"]
+                        logger.info("[%d] 수동 다운로드 필요: %s", article_id, result["error"])
+                    else:
+                        db_link.download_status = "failed"
+                        db_link.download_error = result["error"]
+                        logger.warning("[%d] 외부 다운로드 실패: %s", article_id, result["error"])
+                    session.add(db_link)
+                    session.commit()
 
     def _queue_snapshot(self) -> dict:
         return {

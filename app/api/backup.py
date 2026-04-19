@@ -130,6 +130,9 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
                         "url": l.url,
                         "type": l.link_type,
                         "label": l.label,
+                        "download_status": l.download_status,
+                        "download_path": l.download_path,
+                        "download_error": l.download_error,
                         "source_article_id": l.source_article_id,
                     }
                     for l in links

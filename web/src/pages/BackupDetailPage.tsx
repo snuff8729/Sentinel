@@ -267,16 +267,28 @@ function LinkList({ links, articleSlug }: { links: ArticleLinkItem[]; articleSlu
   )
 }
 
+const DL_STATUS_STYLE: Record<string, { label: string; className: string }> = {
+  completed: { label: '받음', className: 'bg-green-100 text-green-700 border-green-300' },
+  failed: { label: '실패', className: 'bg-red-100 text-red-700 border-red-300' },
+  manual_required: { label: '수동', className: 'bg-amber-100 text-amber-700 border-amber-300' },
+}
+
 function LinkItem({ link }: { link: ArticleLinkItem; articleSlug?: string }) {
   const style = LINK_TYPE_STYLE[link.type] ?? LINK_TYPE_STYLE.other
   const arcaMatch = link.url.match(/arca\.live\/b\/([^/]+)\/(\d+)/)
+  const dlStatus = link.download_status ? DL_STATUS_STYLE[link.download_status] : null
 
   return (
     <div className="flex items-center gap-2 px-3 py-2 border-b last:border-b-0 text-sm hover:bg-muted/20">
       <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${style.className}`}>
         {style.label}
       </span>
-      <span className="flex-1 truncate">{link.label}</span>
+      {dlStatus && (
+        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${dlStatus.className}`} title={link.download_error || ''}>
+          {dlStatus.label}
+        </span>
+      )}
+      <span className="flex-1 truncate" title={link.download_error || ''}>{link.label}</span>
       {link.source_article_id && (
         <span className="text-xs text-muted-foreground">← #{link.source_article_id}</span>
       )}

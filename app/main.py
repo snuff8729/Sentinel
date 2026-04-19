@@ -14,6 +14,7 @@ from app.backup.events import EventBus
 from app.backup.service import BackupService
 from app.backup.worker import BackupWorker
 from app.db.engine import create_engine_and_tables
+from app.backup.downloader import ExternalDownloader
 from app.llm.service import LinkAnalysisService
 from app.llm.version import VersionDetector
 from app.scraper.arca.client import ArcaClient
@@ -32,7 +33,8 @@ async def startup():
     service = BackupService(engine=engine, client=client)
     link_analysis = LinkAnalysisService(engine=engine, arca_client=client)
     version_detector = VersionDetector(engine=engine)
-    worker = BackupWorker(service=service, event_bus=event_bus, link_analysis=link_analysis, version_detector=version_detector)
+    downloader = ExternalDownloader(data_dir="data")
+    worker = BackupWorker(service=service, event_bus=event_bus, link_analysis=link_analysis, version_detector=version_detector, downloader=downloader)
 
     # API routers
     channel_router = create_channel_router(client, engine)

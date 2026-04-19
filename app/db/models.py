@@ -52,6 +52,9 @@ class ArticleLink(SQLModel, table=True):
     link_type: str
     label: str
     source_article_id: int | None = None
+    download_status: str | None = None  # "completed" | "failed" | "manual_required" | None
+    download_path: str | None = None
+    download_error: str | None = None
 
 
 class UpdateCheckCache(SQLModel, table=True):

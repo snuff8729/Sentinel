@@ -96,6 +96,9 @@ export interface ArticleLinkItem {
   type: string
   label: string
   source_article_id: number | null
+  download_status?: string | null
+  download_path?: string | null
+  download_error?: string | null
 }
 
 export interface BackupDetail {
