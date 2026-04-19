@@ -147,11 +147,11 @@ class BackupWorker:
         """다운로드 타입 링크를 자동으로 다운로드."""
         from app.db.engine import get_session
         from app.db.repository import get_links_for_article
-        from app.db.models import ArticleLink
+        from app.db.models import ArticleFile
 
         with get_session(self._service._engine) as session:
             links = get_links_for_article(session, article_id)
-            download_links = [l for l in links if l.link_type == "download" and not l.download_status]
+            download_links = [l for l in links if l.link_type == "download"]
 
         if not download_links:
             return
@@ -161,24 +161,24 @@ class BackupWorker:
         for link in download_links:
             result = await self._downloader.download(link.url, article_id)
 
-            with get_session(self._service._engine) as session:
-                db_link = session.get(ArticleLink, link.id)
-                if db_link:
-                    if result["success"]:
-                        db_link.download_status = "completed"
-                        db_link.download_path = result["local_path"]
-                        logger.info("[%d] 외부 다운로드 완료: %s (%.1fKB)",
-                            article_id, result["filename"], result["size"] / 1024)
-                    elif result["manual_required"]:
-                        db_link.download_status = "manual_required"
-                        db_link.download_error = result["error"]
-                        logger.info("[%d] 수동 다운로드 필요: %s", article_id, result["error"])
-                    else:
-                        db_link.download_status = "failed"
-                        db_link.download_error = result["error"]
-                        logger.warning("[%d] 외부 다운로드 실패: %s", article_id, result["error"])
-                    session.add(db_link)
+            if result["success"]:
+                logger.info("[%d] 외부 다운로드 완료: %s (%.1fKB)",
+                    article_id, result["filename"], result["size"] / 1024)
+                # 첨부 파일로 기록
+                with get_session(self._service._engine) as session:
+                    af = ArticleFile(
+                        article_id=article_id,
+                        filename=result["filename"],
+                        local_path=result["local_path"],
+                        size=result["size"],
+                        note=f"자동 다운로드: {link.url}",
+                    )
+                    session.add(af)
                     session.commit()
+            elif result["manual_required"]:
+                logger.info("[%d] 수동 다운로드 필요: %s", article_id, result["error"])
+            else:
+                logger.warning("[%d] 외부 다운로드 실패: %s", article_id, result["error"])
 
         # 전체 자동 완료 체크
         self._check_download_complete(article_id)

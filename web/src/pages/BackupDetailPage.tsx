@@ -424,16 +424,9 @@ function getDomainLabel(url: string): string | null {
   } catch { return null }
 }
 
-const DL_STATUS_STYLE: Record<string, { label: string; className: string }> = {
-  completed: { label: '받음', className: 'bg-green-100 text-green-700 border-green-300' },
-  failed: { label: '실패', className: 'bg-red-100 text-red-700 border-red-300' },
-  manual_required: { label: '수동', className: 'bg-amber-100 text-amber-700 border-amber-300' },
-}
-
 function LinkItem({ link }: { link: ArticleLinkItem; articleSlug?: string; articleId?: number; onUpdate?: () => void }) {
   const style = LINK_TYPE_STYLE[link.type] ?? LINK_TYPE_STYLE.other
   const arcaMatch = link.url.match(/arca\.live\/b\/([^/]+)\/(\d+)/)
-  const dlStatus = link.download_status ? DL_STATUS_STYLE[link.download_status] : null
   const domainLabel = getDomainLabel(link.url)
 
   return (
@@ -446,12 +439,7 @@ function LinkItem({ link }: { link: ArticleLinkItem; articleSlug?: string; artic
           {domainLabel}
         </span>
       )}
-      {dlStatus && (
-        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${dlStatus.className}`} title={link.download_error || ''}>
-          {dlStatus.label}
-        </span>
-      )}
-      <span className="flex-1 truncate" title={link.download_error || ''}>{link.label}</span>
+      <span className="flex-1 truncate">{link.label}</span>
       {link.source_article_id && (
         <span className="text-xs text-muted-foreground">← #{link.source_article_id}</span>
       )}
