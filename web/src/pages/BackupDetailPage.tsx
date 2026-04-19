@@ -478,22 +478,37 @@ function FileItem({ file, downloadLinks = [], onUpdate }: { file: ArticleFileIte
           </div>
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">연결된 다운로드 링크</label>
-            <Select
-              value={editLinkId != null ? String(editLinkId) : '_none'}
-              onValueChange={(v) => v && setEditLinkId(v === '_none' ? null : Number(v))}
-            >
-              <SelectTrigger className="w-full text-sm">
-                <SelectValue placeholder="없음" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_none">없음</SelectItem>
-                {downloadLinks.map(l => (
-                  <SelectItem key={l.id} value={String(l.id)}>
-                    [{getDomainLabel(l.url) || '링크'}] {l.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {(() => {
+              const options = [
+                { value: '없음', id: null as number | null },
+                ...downloadLinks.map(l => ({
+                  value: `[${getDomainLabel(l.url) || '링크'}] ${l.label}`,
+                  id: l.id,
+                })),
+              ]
+              const selected = options.find(o => o.id === editLinkId) || options[0]
+              return (
+                <Select
+                  value={selected.value}
+                  onValueChange={(v) => {
+                    if (!v) return
+                    const opt = options.find(o => o.value === v)
+                    setEditLinkId(opt?.id ?? null)
+                  }}
+                >
+                  <SelectTrigger className="w-full text-sm">
+                    <SelectValue placeholder="없음" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {options.map(o => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.value}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )
+            })()}
             {downloadLinks.length === 0 && (
               <p className="text-xs text-muted-foreground">다운로드 링크가 분석되지 않았습니다.</p>
             )}
