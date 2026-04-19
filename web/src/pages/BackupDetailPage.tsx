@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { backupApi } from '@/api/client'
-import type { ArticleLinkItem, BackupDetail, DownloadItem, VersionRelation } from '@/api/types'
+import { backupApi, versionApi } from '@/api/client'
+import type { ArticleLinkItem, BackupDetail, DownloadItem, VersionGroupDetail, VersionRelation } from '@/api/types'
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   completed: { label: '완료', className: 'bg-green-100 text-green-700 border-green-300' },
@@ -25,12 +25,20 @@ export function BackupDetailPage() {
   const [detail, setDetail] = useState<BackupDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'preview' | 'files' | 'links' | 'versions'>('preview')
+  const [versionGroup, setVersionGroup] = useState<VersionGroupDetail | null>(null)
 
   useEffect(() => {
     if (!id) return
     setLoading(true)
     backupApi.getDetail(Number(id))
-      .then(setDetail)
+      .then(d => {
+        setDetail(d)
+        if (d.article?.version_group_id) {
+          versionApi.getGroup(d.article.version_group_id).then(setVersionGroup).catch(() => {})
+        } else {
+          setVersionGroup(null)
+        }
+      })
       .finally(() => setLoading(false))
   }, [id])
 
@@ -134,7 +142,7 @@ export function BackupDetailPage() {
           }`}
           onClick={() => setActiveTab('versions')}
         >
-          버전 ({versions.length})
+          버전 ({versionGroup?.articles.length ?? 0})
         </button>
       </div>
 
@@ -151,7 +159,58 @@ export function BackupDetailPage() {
       )}
       {activeTab === 'files' && <FileList downloads={downloads} />}
       {activeTab === 'links' && <LinkList links={links} articleSlug={article.channel_slug} />}
-      {activeTab === 'versions' && <VersionList versions={versions} />}
+      {activeTab === 'versions' && <VersionGroupPanel group={versionGroup} currentId={article.id} />}
+    </div>
+  )
+}
+
+const STATUS_DOT: Record<string, string> = {
+  completed: 'bg-green-500',
+  failed: 'bg-red-500',
+  pending: 'bg-yellow-500',
+  in_progress: 'bg-blue-500',
+}
+
+function VersionGroupPanel({ group, currentId }: { group: VersionGroupDetail | null; currentId: number }) {
+  if (!group) {
+    return <div className="text-center py-8 text-muted-foreground">버전 그룹이 없습니다.</div>
+  }
+
+  return (
+    <div className="border rounded-md">
+      <div className="px-3 py-2 bg-muted/30 border-b text-sm font-medium flex items-center gap-2">
+        <span>📦</span>
+        <span>{group.name}</span>
+        {group.author && <span className="text-xs text-muted-foreground">by {group.author}</span>}
+        <span className="text-xs text-muted-foreground">({group.articles.length}개)</span>
+      </div>
+      {group.articles.map(a => {
+        const isCurrent = a.id === currentId
+        return (
+          <div
+            key={a.id}
+            className={`flex items-center gap-2 px-3 py-2 border-b last:border-b-0 text-sm ${isCurrent ? 'bg-blue-50' : 'hover:bg-muted/20'}`}
+          >
+            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT[a.backup_status] ?? 'bg-gray-300'}`} />
+            {isCurrent ? (
+              <span className="flex-1 truncate font-medium">{a.title}</span>
+            ) : (
+              <Link to={`/backup/${a.id}`} className="flex-1 truncate hover:underline">
+                {a.title}
+              </Link>
+            )}
+            {a.version_label && (
+              <span className="text-xs text-muted-foreground">{a.version_label}</span>
+            )}
+            {isCurrent && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-600 border border-blue-200">현재</span>
+            )}
+            {a.created_at && (
+              <span className="text-xs text-muted-foreground">{new Date(a.created_at).toLocaleDateString('ko-KR')}</span>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
