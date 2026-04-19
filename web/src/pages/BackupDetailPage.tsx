@@ -409,14 +409,18 @@ function FileItem({ file, downloadLinks = [], onUpdate }: { file: ArticleFileIte
   const [editNote, setEditNote] = useState(file.note || '')
   const [editLinkId, setEditLinkId] = useState<number | null>(file.source_link_id)
   const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
 
   const linkedLink = downloadLinks.find(l => l.id === file.source_link_id)
 
   const handleSave = async () => {
     setSaving(true)
+    setSaved(false)
     try {
       await backupApi.updateFreeFile(file.id, { filename: editAlias, note: editNote, source_link_id: editLinkId })
+      setSaved(true)
       onUpdate()
+      setTimeout(() => setSaved(false), 3000)
     } finally {
       setSaving(false)
     }
@@ -494,7 +498,7 @@ function FileItem({ file, downloadLinks = [], onUpdate }: { file: ArticleFileIte
               placeholder="메모를 입력하세요..."
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <button
               className="text-xs px-3 py-1 rounded border border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100"
               onClick={handleSave}
@@ -504,10 +508,13 @@ function FileItem({ file, downloadLinks = [], onUpdate }: { file: ArticleFileIte
             </button>
             <button
               className="text-xs px-3 py-1 rounded border text-muted-foreground hover:bg-muted"
-              onClick={() => { setExpanded(false); setEditAlias(file.filename); setEditNote(file.note || '') }}
+              onClick={() => { setExpanded(false); setEditAlias(file.filename); setEditNote(file.note || ''); setSaved(false) }}
             >
               취소
             </button>
+            {saved && (
+              <span className="text-xs text-green-600 font-medium">✓ 저장되었습니다</span>
+            )}
           </div>
         </div>
       )}
