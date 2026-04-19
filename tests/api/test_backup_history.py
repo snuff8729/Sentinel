@@ -41,7 +41,9 @@ def test_history_all(setup):
     resp = client.get("/api/backup/history")
     assert resp.status_code == 200
     data = resp.json()
-    assert len(data) == 2
+    assert data["total"] == 2
+    assert len(data["items"]) == 2
+    assert data["page"] == 1
     engine.dispose()
 
 
@@ -50,8 +52,8 @@ def test_history_by_status(setup):
     resp = client.get("/api/backup/history?status=completed")
     assert resp.status_code == 200
     data = resp.json()
-    assert len(data) == 1
-    assert data[0]["title"] == "완료됨"
+    assert data["total"] == 1
+    assert data["items"][0]["title"] == "완료됨"
     engine.dispose()
 
 
@@ -60,6 +62,27 @@ def test_history_failed(setup):
     resp = client.get("/api/backup/history?status=failed")
     assert resp.status_code == 200
     data = resp.json()
-    assert len(data) == 1
-    assert data[0]["backup_error"] == "HTTP 404"
+    assert data["total"] == 1
+    assert data["items"][0]["backup_error"] == "HTTP 404"
+    engine.dispose()
+
+
+def test_history_pagination(setup):
+    client, engine = setup
+    resp = client.get("/api/backup/history?page=1&size=1")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 2
+    assert len(data["items"]) == 1
+    assert data["size"] == 1
+    engine.dispose()
+
+
+def test_history_sort_title_asc(setup):
+    client, engine = setup
+    resp = client.get("/api/backup/history?sort=title&dir=asc")
+    assert resp.status_code == 200
+    items = resp.json()["items"]
+    assert items[0]["title"] == "실패함"
+    assert items[1]["title"] == "완료됨"
     engine.dispose()

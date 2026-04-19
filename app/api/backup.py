@@ -31,13 +31,54 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
         return worker.get_status()
 
     @router.get("/history")
-    async def get_history(status: str | None = None):
+    async def get_history(
+        status: str | None = None,
+        filter: str | None = None,
+        page: int = 1,
+        size: int = 50,
+        sort: str = "backed_up_at",
+        dir: str = "desc",
+    ):
+        """페이지네이션 + 정렬 지원. filter='download_incomplete'이면 수동 다운로드 필요 항목만."""
+        from sqlalchemy import func as sql_func, nulls_last
         from app.db.engine import get_session
-        from app.db.repository import get_articles_by_status
+        from app.db.models import Article
+        from sqlmodel import select as sql_select
+
+        size = max(1, min(size, 200))
+        page = max(1, page)
+        offset = (page - 1) * size
+
         _engine = engine or worker._service._engine
         with get_session(_engine) as session:
-            articles = get_articles_by_status(session, status)
-            return [
+            stmt = sql_select(Article)
+            count_stmt = sql_select(sql_func.count(Article.id))
+
+            if status:
+                stmt = stmt.where(Article.backup_status == status)
+                count_stmt = count_stmt.where(Article.backup_status == status)
+
+            if filter == "download_incomplete":
+                cond = (Article.backup_status == "completed") & (Article.download_complete == False) & (Article.analysis_status != "none")  # noqa: E712
+                stmt = stmt.where(cond)
+                count_stmt = count_stmt.where(cond)
+
+            # 정렬 컬럼 매핑
+            sort_col_map = {
+                "backed_up_at": Article.backed_up_at,
+                "created_at": Article.created_at,
+                "title": Article.title,
+                "author": Article.author,
+                "id": Article.id,
+            }
+            col = sort_col_map.get(sort, Article.backed_up_at)
+            order_expr = col.desc() if dir.lower() != "asc" else col.asc()
+            # NULL은 항상 뒤로
+            stmt = stmt.order_by(nulls_last(order_expr), Article.id.desc())
+
+            total = session.exec(count_stmt).one()
+            articles = session.exec(stmt.offset(offset).limit(size)).all()
+            items = [
                 {
                     "id": a.id,
                     "channel_slug": a.channel_slug,
@@ -47,12 +88,14 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
                     "backup_status": a.backup_status,
                     "backup_error": a.backup_error,
                     "backed_up_at": a.backed_up_at.isoformat() if a.backed_up_at else None,
+                    "created_at": a.created_at.isoformat() if a.created_at else None,
                     "analysis_status": a.analysis_status,
                     "analysis_error": a.analysis_error,
                     "download_complete": a.download_complete,
                 }
                 for a in articles
             ]
+            return {"items": items, "total": total, "page": page, "size": size}
 
     @router.post("/status")
     async def get_backup_statuses(ids: list[int] = Body(...)):

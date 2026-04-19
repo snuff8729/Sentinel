@@ -158,8 +158,17 @@ export const backupApi = {
   getDetail: (articleId: number) =>
     get<BackupDetail>(`/backup/detail/${articleId}`),
 
-  getHistory: (status?: string) =>
-    get<BackupHistoryItem[]>(`/backup/history${status ? `?status=${status}` : ''}`),
+  getHistory: (params: { status?: string; filter?: string; page?: number; size?: number; sort?: string; dir?: string } = {}) => {
+    const qs = new URLSearchParams()
+    if (params.status) qs.set('status', params.status)
+    if (params.filter) qs.set('filter', params.filter)
+    if (params.page) qs.set('page', String(params.page))
+    if (params.size) qs.set('size', String(params.size))
+    if (params.sort) qs.set('sort', params.sort)
+    if (params.dir) qs.set('dir', params.dir)
+    const suffix = qs.toString() ? `?${qs.toString()}` : ''
+    return get<{ items: BackupHistoryItem[]; total: number; page: number; size: number }>(`/backup/history${suffix}`)
+  },
 
   uploadFreeFile: async (articleId: number, file: File, note?: string) => {
     const formData = new FormData()

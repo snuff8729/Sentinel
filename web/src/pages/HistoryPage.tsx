@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import {
@@ -30,91 +30,70 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   cancelled: { label: '취소', className: 'bg-gray-100 text-gray-500 border-gray-300' },
 }
 
+const PAGE_SIZE = 50
+
 export function HistoryPage() {
   const [items, setItems] = useState<BackupHistoryItem[]>([])
+  const [total, setTotal] = useState(0)
   const [searchParams, setSearchParams] = useSearchParams()
   const filter = searchParams.get('filter') ?? undefined
   const sortKey = (searchParams.get('sort') as SortKey | null) ?? 'backed_up_at'
   const sortDir = (searchParams.get('dir') as SortDir | null) ?? 'desc'
-  const updateParams = (next: { filter?: string; sort?: SortKey; dir?: SortDir }) => {
+  const page = parseInt(searchParams.get('page') ?? '1', 10) || 1
+  const updateParams = (next: { filter?: string; sort?: SortKey; dir?: SortDir; page?: number }) => {
     const params: Record<string, string> = {}
     const f = next.filter !== undefined ? next.filter : filter
     const s = next.sort !== undefined ? next.sort : sortKey
     const d = next.dir !== undefined ? next.dir : sortDir
+    const p = next.page !== undefined ? next.page : page
     if (f) params.filter = f
     if (s && s !== 'backed_up_at') params.sort = s
     if (d && d !== 'desc') params.dir = d
+    if (p && p !== 1) params.page = String(p)
     setSearchParams(params)
   }
-  const setFilter = (next: string | undefined) => updateParams({ filter: next ?? '' })
+  const setFilter = (next: string | undefined) => updateParams({ filter: next ?? '', page: 1 })
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [expandedLinks, setExpandedLinks] = useState<ArticleLinkItem[]>([])
   const [expandedFiles, setExpandedFiles] = useState<ArticleFileItem[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
 
-  const sortedItems = useMemo(() => {
-    const arr = [...items]
-    arr.sort((a, b) => {
-      let cmp = 0
-      if (sortKey === 'backed_up_at') {
-        const av = a.backed_up_at ? new Date(a.backed_up_at).getTime() : 0
-        const bv = b.backed_up_at ? new Date(b.backed_up_at).getTime() : 0
-        cmp = av - bv
-      } else if (sortKey === 'created_at') {
-        const av = a.created_at ? new Date(a.created_at).getTime() : 0
-        const bv = b.created_at ? new Date(b.created_at).getTime() : 0
-        cmp = av - bv
-      } else if (sortKey === 'title') {
-        cmp = a.title.localeCompare(b.title, 'ko')
-      } else if (sortKey === 'author') {
-        cmp = a.author.localeCompare(b.author, 'ko')
-      }
-      return sortDir === 'desc' ? -cmp : cmp
-    })
-    return arr
-  }, [items, sortKey, sortDir])
-
-  const isSpecialFilter = filter === 'download_incomplete'
-
-  useEffect(() => {
+  const isStatusFilter = filter !== undefined && filter !== 'download_incomplete'
+  const load = useCallback(() => {
     setLoading(true)
-    const apiFilter = isSpecialFilter ? undefined : filter
-    backupApi.getHistory(apiFilter)
-      .then(data => {
-        if (filter === 'download_incomplete') {
-          setItems(data.filter(i => i.backup_status === 'completed' && !i.download_complete && i.analysis_status !== 'none'))
-        } else {
-          setItems(data)
-        }
+    backupApi.getHistory({
+      status: isStatusFilter ? filter : undefined,
+      filter: filter === 'download_incomplete' ? 'download_incomplete' : undefined,
+      page,
+      size: PAGE_SIZE,
+      sort: sortKey,
+      dir: sortDir,
+    })
+      .then(res => {
+        setItems(res.items)
+        setTotal(res.total)
       })
       .finally(() => setLoading(false))
-  }, [filter])
+  }, [filter, isStatusFilter, page, sortKey, sortDir])
+
+  useEffect(() => { load() }, [load])
 
   useSSE('/api/backup/events', {
     queue_updated: () => {},
     article_started: (data: unknown) => {
       const d = data as SSEArticleStarted
-      setItems(prev => {
-        const exists = prev.some(item => item.id === d.article_id)
-        if (exists) {
-          return prev.map(item =>
-            item.id === d.article_id
-              ? { ...item, backup_status: 'in_progress', backup_error: null }
-              : item
-          )
-        }
-        return [{
-          id: d.article_id,
-          channel_slug: '',
-          title: d.title,
-          author: '',
-          category: null,
-          backup_status: 'in_progress',
-          backup_error: null,
-          backed_up_at: null,
-        }, ...prev]
-      })
+      const exists = items.some(item => item.id === d.article_id)
+      if (exists) {
+        setItems(prev => prev.map(item =>
+          item.id === d.article_id
+            ? { ...item, backup_status: 'in_progress', backup_error: null }
+            : item
+        ))
+      } else {
+        // 현재 페이지에 없는 새 항목 — 서버 정렬·페이지 유지 위해 재페칭
+        load()
+      }
     },
     article_completed: (data: unknown) => {
       const d = data as SSEArticleCompleted
@@ -183,7 +162,7 @@ export function HistoryPage() {
       {/* 정렬 */}
       <div className="flex items-center gap-2 text-sm">
         <span className="text-muted-foreground">정렬</span>
-        <Select value={sortKey} onValueChange={(v) => v && updateParams({ sort: v as SortKey })}>
+        <Select value={sortKey} onValueChange={(v) => v && updateParams({ sort: v as SortKey, page: 1 })}>
           <SelectTrigger className="w-32 h-8 text-xs">
             <SelectValue>
               {(v) => SORT_OPTIONS.find(o => o.value === v)?.label ?? v}
@@ -198,7 +177,7 @@ export function HistoryPage() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => updateParams({ dir: sortDir === 'desc' ? 'asc' : 'desc' })}
+          onClick={() => updateParams({ dir: sortDir === 'desc' ? 'asc' : 'desc', page: 1 })}
           title={sortDir === 'desc' ? '내림차순' : '오름차순'}
         >
           {sortDir === 'desc' ? '↓' : '↑'}
@@ -206,19 +185,19 @@ export function HistoryPage() {
       </div>
 
       {/* 수동 다운로드 대기 요약 */}
-      {!loading && items.some(i => i.backup_status === 'completed' && !i.download_complete && i.analysis_status !== 'none') && (
+      {!loading && filter !== 'download_incomplete' && items.some(i => i.backup_status === 'completed' && !i.download_complete && i.analysis_status !== 'none') && (
         <div className="text-sm p-3 rounded border bg-amber-50 border-amber-200 text-amber-700">
-          ⚠ 수동 다운로드가 필요한 항목이 {items.filter(i => i.backup_status === 'completed' && !i.download_complete && i.analysis_status !== 'none').length}개 있습니다.
+          ⚠ 이 페이지에 수동 다운로드가 필요한 항목이 있습니다. '다운로드 미완료' 필터로 전체 목록을 볼 수 있습니다.
         </div>
       )}
 
       {loading ? (
         <div className="text-center py-8 text-muted-foreground">로딩 중...</div>
-      ) : sortedItems.length === 0 ? (
+      ) : items.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">이력이 없습니다.</div>
       ) : (
         <div className="border rounded-md">
-          {sortedItems.map(item => {
+          {items.map(item => {
             const badgeInfo = STATUS_BADGE[item.backup_status] ?? { label: item.backup_status, className: 'bg-gray-100 text-gray-500 border-gray-300' }
             const isExpanded = expandedId === item.id
 
@@ -337,6 +316,32 @@ export function HistoryPage() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* 페이지네이션 */}
+      {total > PAGE_SIZE && (
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">
+            {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} / {total}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm" variant="outline"
+              disabled={page <= 1}
+              onClick={() => updateParams({ page: page - 1 })}
+            >
+              이전
+            </Button>
+            <span className="px-2">{page} / {Math.max(1, Math.ceil(total / PAGE_SIZE))}</span>
+            <Button
+              size="sm" variant="outline"
+              disabled={page >= Math.ceil(total / PAGE_SIZE)}
+              onClick={() => updateParams({ page: page + 1 })}
+            >
+              다음
+            </Button>
+          </div>
         </div>
       )}
     </div>
