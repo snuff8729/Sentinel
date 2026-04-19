@@ -24,8 +24,8 @@ export function ChannelPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [data, setData] = useState<ArticleListType | null>(null)
   const [selected, setSelected] = useState<Set<number>>(new Set())
-  const [keyword, setKeyword] = useState('')
-  const [searchTarget, setSearchTarget] = useState('전체')
+  const [keywordInput, setKeywordInput] = useState('')
+  const [targetInput, setTargetInput] = useState('전체')
   const [loading, setLoading] = useState(false)
   const [backupStatuses, setBackupStatuses] = useState<Record<string, string>>({})
 
@@ -37,6 +37,10 @@ export function ChannelPage() {
     '글쓴이': 'nickname',
     '댓글': 'comment',
   }
+
+  const TARGET_LABELS: Record<string, string> = Object.fromEntries(
+    Object.entries(SEARCH_TARGETS).map(([k, v]) => [v, k])
+  )
 
   // SSE로 백업 상태 실시간 업데이트
   const updateStatus = useCallback((articleId: number, status: string) => {
@@ -60,6 +64,8 @@ export function ChannelPage() {
   const category = searchParams.get('category') || undefined
   const mode = searchParams.get('mode') || undefined
   const page = Number(searchParams.get('page') || '1')
+  const keyword = searchParams.get('keyword') || undefined
+  const target = searchParams.get('target') || undefined
 
   useEffect(() => {
     if (!slug) return
@@ -70,27 +76,17 @@ export function ChannelPage() {
     channelApi.getCategories(slug).then(setCategories)
   }, [slug])
 
+  // URL 파라미터가 바뀔 때마다 데이터 로드 (검색 포함)
   useEffect(() => {
     if (!slug) return
     setLoading(true)
     setSelected(new Set())
-    channelApi.getArticles(slug, { category, mode, page })
-      .then(result => {
-        setData(result)
-        const ids = result.articles.map(a => a.id)
-        if (ids.length > 0) {
-          backupApi.getStatuses(ids).then(setBackupStatuses)
-        } else {
-          setBackupStatuses({})
-        }
-      })
-      .finally(() => setLoading(false))
-  }, [slug, category, mode, page])
 
-  const doSearch = (searchKeyword: string, target: string) => {
-    if (!slug || !searchKeyword.trim()) return
-    setLoading(true)
-    channelApi.search(slug, searchKeyword, target)
+    const fetchData = keyword
+      ? channelApi.search(slug, keyword, target || 'all', page)
+      : channelApi.getArticles(slug, { category, mode, page })
+
+    fetchData
       .then(result => {
         setData(result)
         const ids = result.articles.map(a => a.id)
@@ -101,17 +97,26 @@ export function ChannelPage() {
         }
       })
       .finally(() => setLoading(false))
-  }
+  }, [slug, category, mode, page, keyword, target])
+
+  // URL 파라미터에서 검색 입력 필드 동기화
+  useEffect(() => {
+    setKeywordInput(keyword || '')
+    setTargetInput(TARGET_LABELS[target || 'all'] || '전체')
+  }, [keyword, target])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    doSearch(keyword, SEARCH_TARGETS[searchTarget] || 'all')
+    if (!keywordInput.trim()) return
+    updateParams({ keyword: keywordInput, target: SEARCH_TARGETS[targetInput] || 'all' })
   }
 
   const handleSearchAuthor = (author: string) => {
-    setKeyword(author)
-    setSearchTarget('글쓴이')
-    doSearch(author, 'nickname')
+    updateParams({ keyword: author, target: 'nickname' })
+  }
+
+  const handleClearSearch = () => {
+    updateParams({ keyword: undefined, target: undefined })
   }
 
   const updateParams = (updates: Record<string, string | undefined>) => {
@@ -201,7 +206,7 @@ export function ChannelPage() {
         </Button>
         <div className="flex-1" />
         <form onSubmit={handleSearch} className="flex gap-2">
-          <Select value={searchTarget} onValueChange={(v) => v && setSearchTarget(v)}>
+          <Select value={targetInput} onValueChange={(v) => v && setTargetInput(v)}>
             <SelectTrigger className="w-28">
               <SelectValue placeholder="전체" />
             </SelectTrigger>
@@ -214,12 +219,15 @@ export function ChannelPage() {
             </SelectContent>
           </Select>
           <Input
-            value={keyword}
-            onChange={e => setKeyword(e.target.value)}
+            value={keywordInput}
+            onChange={e => setKeywordInput(e.target.value)}
             placeholder="검색..."
             className="w-48"
           />
           <Button type="submit" size="sm" variant="outline">검색</Button>
+          {keyword && (
+            <Button type="button" size="sm" variant="ghost" onClick={handleClearSearch}>✕</Button>
+          )}
         </form>
       </div>
 
