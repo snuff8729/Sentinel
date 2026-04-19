@@ -54,6 +54,18 @@ class ArticleLink(SQLModel, table=True):
     source_article_id: int | None = None
 
 
+class UpdateCheckCache(SQLModel, table=True):
+    article_id: int = Field(primary_key=True)
+    matched_id: int | None = None
+    matched_title: str | None = None
+    similarity: float = 0.0
+    is_update: bool | None = None
+    reason: str = ""
+    group_id: int | None = None
+    group_name: str | None = None
+    checked_at: datetime | None = None
+
+
 class Download(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     article_id: int = Field(foreign_key="article.id")

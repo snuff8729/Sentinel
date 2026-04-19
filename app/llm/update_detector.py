@@ -5,8 +5,10 @@ import logging
 import re
 from dataclasses import dataclass
 
+from datetime import datetime, timezone
+
 from app.db.engine import get_session
-from app.db.models import Article
+from app.db.models import Article, UpdateCheckCache
 from app.db.repository import get_followed_usernames, get_setting, search_similar_articles, store_embedding
 from app.llm.client import LLMClient
 from app.llm.embedding import EmbeddingClient
@@ -105,7 +107,35 @@ class UpdateDetector:
         if not target_articles:
             return []
 
-        logger.info("업데이트 감지: %d개 게시글 대상", len(target_articles))
+        # 캐시 확인
+        cached_results: list[dict] = []
+        uncached_articles: list[dict] = []
+        with get_session(self._engine) as session:
+            for a in target_articles:
+                cache = session.get(UpdateCheckCache, a["id"])
+                if cache and cache.checked_at:
+                    if cache.matched_id:
+                        cached_results.append({
+                            "article_id": cache.article_id,
+                            "title": a["title"],
+                            "author": a["author"],
+                            "matched_id": cache.matched_id,
+                            "matched_title": cache.matched_title or "",
+                            "similarity": cache.similarity,
+                            "is_update": cache.is_update,
+                            "reason": cache.reason,
+                            "group_id": cache.group_id,
+                            "group_name": cache.group_name,
+                        })
+                else:
+                    uncached_articles.append(a)
+
+        if not uncached_articles:
+            logger.info("업데이트 감지: 전부 캐시 히트 (%d개)", len(cached_results))
+            return cached_results
+
+        target_articles = uncached_articles
+        logger.info("업데이트 감지: %d개 게시글 대상 (%d개 캐시)", len(target_articles), len(cached_results))
 
         # 3. 배치 임베딩
         texts = [f"{a['author']}: {a['title']}" for a in target_articles]
@@ -125,11 +155,14 @@ class UpdateDetector:
                     session, embedding, article["author"], article["id"], limit=1
                 )
                 if not similar:
+                    # 매칭 없음 — 캐시에 기록
+                    self._save_cache(article["id"], None, None, 0, None, "", None, None)
                     continue
 
                 matched_id, distance = similar[0]
                 similarity = 1.0 - distance
                 if similarity < 0.7:
+                    self._save_cache(article["id"], None, None, 0, None, "", None, None)
                     continue
 
                 matched = session.get(Article, matched_id)
@@ -165,8 +198,11 @@ class UpdateDetector:
                 except Exception as e:
                     logger.warning("LLM 판별 실패 (%d): %s", article["id"], e)
 
+            # 캐시 저장
+            self._save_cache(article["id"], matched_id, matched.title, similarity, is_update, reason, group_id, group_name)
+
             if is_update is False:
-                continue  # LLM이 업데이트 아니라고 함
+                continue
 
             results.append({
                 "article_id": article["id"],
@@ -181,5 +217,34 @@ class UpdateDetector:
                 "group_name": group_name,
             })
 
-        logger.info("업데이트 감지 결과: %d개", len(results))
-        return results
+        logger.info("업데이트 감지 결과: %d개 (새 %d + 캐시 %d)", len(results) + len(cached_results), len(results), len(cached_results))
+        return cached_results + results
+
+    def _save_cache(self, article_id: int, matched_id: int | None, matched_title: str | None,
+                    similarity: float, is_update: bool | None, reason: str,
+                    group_id: int | None, group_name: str | None) -> None:
+        with get_session(self._engine) as session:
+            cache = session.get(UpdateCheckCache, article_id)
+            if cache:
+                cache.matched_id = matched_id
+                cache.matched_title = matched_title
+                cache.similarity = similarity
+                cache.is_update = is_update
+                cache.reason = reason
+                cache.group_id = group_id
+                cache.group_name = group_name
+                cache.checked_at = datetime.now(timezone.utc)
+            else:
+                cache = UpdateCheckCache(
+                    article_id=article_id,
+                    matched_id=matched_id,
+                    matched_title=matched_title,
+                    similarity=similarity,
+                    is_update=is_update,
+                    reason=reason,
+                    group_id=group_id,
+                    group_name=group_name,
+                    checked_at=datetime.now(timezone.utc),
+                )
+            session.add(cache)
+            session.commit()

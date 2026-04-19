@@ -30,6 +30,8 @@ export function ChannelPage() {
   const [backupStatuses, setBackupStatuses] = useState<Record<string, string>>({})
   const [followedUsers, setFollowedUsers] = useState<Set<string>>(new Set())
   const [updateCandidates, setUpdateCandidates] = useState<Record<number, { matched_title: string; group_name: string | null; reason: string }>>({})
+  const [updateDetectEnabled, setUpdateDetectEnabled] = useState(false)
+  const [updateDetecting, setUpdateDetecting] = useState(false)
 
   const SEARCH_TARGETS: Record<string, string> = {
     '전체': 'all',
@@ -98,19 +100,25 @@ export function ChannelPage() {
         } else {
           setBackupStatuses({})
         }
-        // 백그라운드: 업데이트 감지
+        // 업데이트 감지 비활성화면 스킵
         setUpdateCandidates({})
-        const articlesForCheck = result.articles.map(a => ({ id: a.id, title: a.title, author: a.author }))
-        channelApi.checkUpdates(slug, articlesForCheck).then(res => {
-          const map: Record<number, { matched_title: string; group_name: string | null; reason: string }> = {}
-          for (const u of res.updates) {
-            map[u.article_id] = { matched_title: u.matched_title, group_name: u.group_name, reason: u.reason }
-          }
-          setUpdateCandidates(map)
-        }).catch(() => {})
       })
       .finally(() => setLoading(false))
   }, [slug, category, mode, page, keyword, target])
+
+  // 업데이트 감지 (토글 활성화 시)
+  useEffect(() => {
+    if (!updateDetectEnabled || !slug || !data) return
+    setUpdateDetecting(true)
+    const articlesForCheck = data.articles.map(a => ({ id: a.id, title: a.title, author: a.author }))
+    channelApi.checkUpdates(slug, articlesForCheck).then(res => {
+      const map: Record<number, { matched_title: string; group_name: string | null; reason: string }> = {}
+      for (const u of res.updates) {
+        map[u.article_id] = { matched_title: u.matched_title, group_name: u.group_name, reason: u.reason }
+      }
+      setUpdateCandidates(map)
+    }).catch(() => {}).finally(() => setUpdateDetecting(false))
+  }, [updateDetectEnabled, data, slug])
 
   // URL 파라미터에서 검색 입력 필드 동기화
   useEffect(() => {
@@ -226,6 +234,14 @@ export function ChannelPage() {
           onClick={() => updateParams({ mode: mode === 'best' ? undefined : 'best' })}
         >
           개념글
+        </Button>
+        <Button
+          variant={updateDetectEnabled ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setUpdateDetectEnabled(!updateDetectEnabled)}
+          disabled={updateDetecting}
+        >
+          {updateDetecting ? '감지 중...' : updateDetectEnabled ? '🔄 업데이트 감지 ON' : '업데이트 감지'}
         </Button>
         <div className="flex-1" />
         <form onSubmit={handleSearch} className="flex gap-2">
