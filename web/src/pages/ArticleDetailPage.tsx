@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { articleApi, backupApi, versionApi } from '@/api/client'
+import { articleApi, backupApi, channelApi, versionApi } from '@/api/client'
+import type { ChannelInfo } from '@/api/types'
 import { Input } from '@/components/ui/input'
 import type { AnalyzedLink, ArticleDetail } from '@/api/types'
 import '@/styles/article-content.css'
@@ -28,6 +29,7 @@ export function ArticleDetailPage() {
   const [backupQueued, setBackupQueued] = useState(false)
   const [backupStatus, setBackupStatus] = useState<string | null>(null)
   const [versionGroup, setVersionGroup] = useState<{ id: number; name: string; articles: { id: number; title: string; version_label: string | null; backup_status: string; created_at: string | null }[] } | null>(null)
+  const [channelInfo, setChannelInfo] = useState<ChannelInfo | null>(null)
 
   useEffect(() => {
     if (!slug || !id) return
@@ -43,6 +45,8 @@ export function ArticleDetailPage() {
       setDetail(d)
       setCommentsHtml(c.html)
     }).finally(() => setLoading(false))
+    // 채널 정보
+    channelApi.getInfo(slug).then(setChannelInfo).catch(() => {})
     // 백업 상태 + 버전 그룹 확인
     backupApi.getStatuses([articleId]).then(statuses => {
       setBackupStatus(statuses[String(articleId)]?.status || null)
@@ -89,6 +93,16 @@ export function ArticleDetailPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      {/* 채널 */}
+      {channelInfo && slug && (
+        <Link to={`/channel/${slug}`} className="flex items-center gap-2 hover:opacity-80">
+          {channelInfo.icon_url && (
+            <img src={channelInfo.icon_url} alt="" className="w-6 h-6 rounded" referrerPolicy="no-referrer" />
+          )}
+          <span className="text-sm text-muted-foreground">{channelInfo.name}</span>
+        </Link>
+      )}
+
       {/* 헤더 */}
       <div className="space-y-2">
         <div className="flex items-center gap-2">
