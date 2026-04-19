@@ -30,7 +30,6 @@ export function ChannelPage() {
   const [backupStatuses, setBackupStatuses] = useState<Record<string, string>>({})
   const [followedUsers, setFollowedUsers] = useState<Set<string>>(new Set())
   const [updateCandidates, setUpdateCandidates] = useState<Record<number, { matched_title: string; group_name: string | null; reason: string }>>({})
-  const [updateDetectEnabled, setUpdateDetectEnabled] = useState(false)
   const [updateDetecting, setUpdateDetecting] = useState(false)
   const [updateDetectError, setUpdateDetectError] = useState('')
 
@@ -71,6 +70,7 @@ export function ChannelPage() {
   const page = Number(searchParams.get('page') || '1')
   const keyword = searchParams.get('keyword') || undefined
   const target = searchParams.get('target') || undefined
+  const updateDetectEnabled = searchParams.get('detect') === '1'
 
   useEffect(() => {
     if (!slug) return
@@ -107,9 +107,12 @@ export function ChannelPage() {
       .finally(() => setLoading(false))
   }, [slug, category, mode, page, keyword, target])
 
-  // 업데이트 감지 (토글 활성화 시)
+  // 업데이트 감지 (토글 활성화 + 데이터 로드 완료 시)
   useEffect(() => {
-    if (!updateDetectEnabled || !slug || !data) return
+    if (!updateDetectEnabled || !slug || !data || data.articles.length === 0) {
+      if (!updateDetectEnabled) setUpdateCandidates({})
+      return
+    }
     setUpdateDetecting(true)
     const articlesForCheck = data.articles.map(a => ({ id: a.id, title: a.title, author: a.author }))
     channelApi.checkUpdates(slug, articlesForCheck).then(res => {
@@ -119,7 +122,8 @@ export function ChannelPage() {
       }
       setUpdateCandidates(map)
     }).catch(() => {}).finally(() => setUpdateDetecting(false))
-  }, [updateDetectEnabled, data, slug])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [updateDetectEnabled, data])
 
   // URL 파라미터에서 검색 입력 필드 동기화
   useEffect(() => {
@@ -247,9 +251,12 @@ export function ChannelPage() {
                 setUpdateDetectError('임베딩이 설정되지 않았습니다. 설정 페이지에서 구성해주세요.')
                 return
               }
+              updateParams({ detect: '1' })
+            } else {
+              updateParams({ detect: undefined })
+              setUpdateDetectError('')
+              setUpdateCandidates({})
             }
-            setUpdateDetectEnabled(!updateDetectEnabled)
-            if (updateDetectEnabled) setUpdateDetectError('')
           }}
           disabled={updateDetecting}
         >
