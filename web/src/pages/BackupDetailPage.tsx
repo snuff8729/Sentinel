@@ -360,25 +360,11 @@ const DL_STATUS_STYLE: Record<string, { label: string; className: string }> = {
   manual_required: { label: '수동', className: 'bg-amber-100 text-amber-700 border-amber-300' },
 }
 
-function LinkItem({ link, articleId, onUpdate }: { link: ArticleLinkItem; articleSlug?: string; articleId?: number; onUpdate?: () => void }) {
+function LinkItem({ link }: { link: ArticleLinkItem; articleSlug?: string; articleId?: number; onUpdate?: () => void }) {
   const style = LINK_TYPE_STYLE[link.type] ?? LINK_TYPE_STYLE.other
   const arcaMatch = link.url.match(/arca\.live\/b\/([^/]+)\/(\d+)/)
   const dlStatus = link.download_status ? DL_STATUS_STYLE[link.download_status] : null
   const domainLabel = getDomainLabel(link.url)
-  const fileInputId = `upload-${link.id}`
-  const showUpload = link.type === 'download' && link.download_status !== 'completed'
-
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !articleId) return
-    try {
-      await backupApi.uploadFile(articleId, file, link.id)
-      onUpdate?.()
-    } catch (err) {
-      alert(`업로드 실패: ${err}`)
-    }
-    e.target.value = ''
-  }
 
   return (
     <div className="flex items-center gap-2 px-3 py-2 border-b last:border-b-0 text-sm hover:bg-muted/20">
@@ -398,17 +384,6 @@ function LinkItem({ link, articleId, onUpdate }: { link: ArticleLinkItem; articl
       <span className="flex-1 truncate" title={link.download_error || ''}>{link.label}</span>
       {link.source_article_id && (
         <span className="text-xs text-muted-foreground">← #{link.source_article_id}</span>
-      )}
-      {showUpload && (
-        <>
-          <input type="file" id={fileInputId} className="hidden" onChange={handleUpload} />
-          <label
-            htmlFor={fileInputId}
-            className="text-xs px-2 py-0.5 rounded border border-green-300 bg-green-50 text-green-600 hover:bg-green-100 cursor-pointer"
-          >
-            파일 업로드
-          </label>
-        </>
       )}
       {arcaMatch ? (
         <Link
