@@ -62,7 +62,7 @@ export function ArticleList({
                 disabled={isQueued}
               />
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 relative group/title">
               {/* 윗줄: 백업상태 + 카테고리 + 제목 + 댓글수 */}
               <Link
                 to={`/article/${slug}/${article.id}`}
@@ -96,7 +96,22 @@ export function ArticleList({
                 {article.comment_count > 0 && (
                   <span className="text-blue-500 ml-1 text-xs align-middle">[{article.comment_count}]</span>
                 )}
+                {article.has_image && <span className="ml-1 text-blue-400 text-xs align-middle" title="이미지">🖼</span>}
+                {article.has_video && <span className="ml-1 text-blue-400 text-xs align-middle" title="비디오">🎬</span>}
               </Link>
+
+              {/* 썸네일 hover 프리뷰 */}
+              {article.thumbnail_url && (
+                <div className="hidden group-hover/title:block absolute left-0 top-full mt-1 z-40 p-1 bg-popover border rounded shadow-lg pointer-events-none">
+                  <img
+                    src={article.thumbnail_url}
+                    alt=""
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    className="block max-w-[320px] max-h-[320px] object-contain rounded"
+                  />
+                </div>
+              )}
 
               {/* 아랫줄: ★ + 팔로우 + 작성자 + 날짜 + 조회 + 추천 */}
               <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">

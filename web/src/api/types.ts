@@ -11,6 +11,7 @@ export interface Category {
 
 export interface ArticleRow {
   id: number
+  thumbnail_url?: string | null
   title: string
   category: string | null
   comment_count: number

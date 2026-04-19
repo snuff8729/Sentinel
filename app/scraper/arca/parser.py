@@ -72,6 +72,14 @@ def _parse_article_row(row: Tag) -> ArticleRow | None:
     has_video = bool(row.select_one(".media-icon.ion-ios-videocam-outline"))
     is_best = bool(title_el and title_el.select_one(".ion-android-star"))
 
+    # 썸네일 — arca 목록의 .vrow-preview noscript img (JS lazy 로드 전 원본)
+    thumb_el = row.select_one(".vrow-preview noscript img")
+    thumbnail_url: str | None = None
+    if thumb_el:
+        thumb_src = thumb_el.get("src", "")
+        if thumb_src:
+            thumbnail_url = f"https:{thumb_src}" if thumb_src.startswith("//") else thumb_src
+
     href = row.get("href", "")
     url = href if href.startswith("http") else f"https://arca.live{href}"
 
@@ -88,6 +96,7 @@ def _parse_article_row(row: Tag) -> ArticleRow | None:
         has_video=has_video,
         is_best=is_best,
         url=url,
+        thumbnail_url=thumbnail_url,
     )
 
 

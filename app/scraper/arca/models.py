@@ -29,6 +29,7 @@ class ArticleRow(BaseModel):
     has_video: bool
     is_best: bool
     url: str
+    thumbnail_url: str | None = None
 
 
 class ArticleList(BaseModel):
