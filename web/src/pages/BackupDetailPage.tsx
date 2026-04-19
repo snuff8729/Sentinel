@@ -121,7 +121,7 @@ export function BackupDetailPage() {
         )}
         <Button size="sm" variant="outline" onClick={handleRetry}>재시도</Button>
         <Link to={`/article/${article.channel_slug}/${article.id}`}>
-          <Button size="sm" variant="outline">원본 보기 (arca.live)</Button>
+          <Button size="sm" variant="outline">원본 보기 (Sentinel)</Button>
         </Link>
         {article.url && (
           <a href={article.url} target="_blank" rel="noopener noreferrer">
