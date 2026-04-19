@@ -61,25 +61,34 @@ class ExternalDownloader:
                     "error": "Realm character ID 추출 실패", "manual_required": True}
 
         char_id = match.group(1)
-        download_url = f"https://realm.risuai.net/api/v1/download/charx-v3/{char_id}"
 
         try:
             async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
-                # 페이지에서 캐릭터 이름 가져오기
+                from bs4 import BeautifulSoup
+
+                # 페이지에서 캐릭터 이름 + 실제 다운로드 경로 가져오기
                 char_name = char_id
+                download_url = f"https://realm.risuai.net/api/v1/download/charx-v3/{char_id}"
+
                 try:
-                    from bs4 import BeautifulSoup
                     page_resp = await client.get(f"https://realm.risuai.net/character/{char_id}", timeout=10)
                     if page_resp.status_code == 200:
                         soup = BeautifulSoup(page_resp.text, "lxml")
                         title = soup.select_one("title")
                         if title:
-                            # "RisuRealm - CharName" → "CharName"
                             t = title.get_text(strip=True)
                             if " - " in t:
                                 char_name = t.split(" - ", 1)[1].strip()
                             elif t:
                                 char_name = t
+                        # 실제 다운로드 링크 추출
+                        dl_link = soup.select_one("a[href*='/api/v1/download/']")
+                        if dl_link:
+                            href = dl_link.get("href", "")
+                            if href.startswith("/"):
+                                download_url = f"https://realm.risuai.net{href}"
+                            elif href.startswith("http"):
+                                download_url = href
                 except Exception:
                     pass
 
@@ -87,16 +96,17 @@ class ExternalDownloader:
                 resp.raise_for_status()
 
                 # 파일명 결정
+                safe_name = re.sub(r'[\\/:*?"<>|]', '_', char_name)
                 content_disp = resp.headers.get("content-disposition", "")
                 if "filename=" in content_disp:
                     fn = re.search(r'filename="?([^";\s]+)"?', content_disp)
-                    filename = fn.group(1) if fn else f"{char_name}.charx"
+                    filename = fn.group(1) if fn else f"{safe_name}.charx"
                 else:
-                    # 안전한 파일명으로 변환
-                    safe_name = re.sub(r'[\\/:*?"<>|]', '_', char_name)
                     content_type = resp.headers.get("content-type", "")
                     if "charx" in content_type:
                         filename = f"{safe_name}.charx"
+                    elif "png" in content_type:
+                        filename = f"{safe_name}.png"
                     elif "json" in content_type:
                         filename = f"{safe_name}.json"
                     else:
