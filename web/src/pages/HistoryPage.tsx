@@ -28,10 +28,21 @@ export function HistoryPage() {
   const [downloads, setDownloads] = useState<DownloadItem[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
 
+  const isSpecialFilter = filter === 'manual_download' || filter === 'download_incomplete'
+
   useEffect(() => {
     setLoading(true)
-    backupApi.getHistory(filter)
-      .then(setItems)
+    const apiFilter = isSpecialFilter ? undefined : filter
+    backupApi.getHistory(apiFilter)
+      .then(data => {
+        if (filter === 'manual_download') {
+          setItems(data.filter(i => i.analysis_status === 'manual_required'))
+        } else if (filter === 'download_incomplete') {
+          setItems(data.filter(i => i.backup_status === 'completed' && !i.download_complete && i.analysis_status !== 'none'))
+        } else {
+          setItems(data)
+        }
+      })
       .finally(() => setLoading(false))
   }, [filter])
 
@@ -104,7 +115,7 @@ export function HistoryPage() {
       <h1 className="text-2xl font-bold">백업 이력</h1>
 
       {/* 필터 */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {[undefined, 'completed', 'failed', 'cancelled', 'pending', 'in_progress'].map(status => (
           <Button
             key={status ?? 'all'}
@@ -115,6 +126,20 @@ export function HistoryPage() {
             {status ? STATUS_BADGE[status]?.label ?? status : '전체'}
           </Button>
         ))}
+        <Button
+          variant={filter === 'manual_download' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setFilter(filter === 'manual_download' ? undefined : 'manual_download')}
+        >
+          수동 다운로드 필요
+        </Button>
+        <Button
+          variant={filter === 'download_incomplete' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setFilter(filter === 'download_incomplete' ? undefined : 'download_incomplete')}
+        >
+          다운로드 미완료
+        </Button>
       </div>
 
       {/* 수동 다운로드 대기 요약 */}
@@ -157,7 +182,7 @@ export function HistoryPage() {
                       )}
                       {item.analysis_status === 'manual_required' && (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle bg-amber-100 text-amber-700 border-amber-300">
-                          수동분류
+                          수동 다운로드 필요
                         </span>
                       )}
                       {item.analysis_status === 'failed' && (
@@ -165,7 +190,7 @@ export function HistoryPage() {
                           분석실패
                         </span>
                       )}
-                      {item.backup_status === 'completed' && item.download_complete === false && item.analysis_status !== 'none' && (
+                      {item.backup_status === 'completed' && item.download_complete === false && item.analysis_status !== 'none' && item.analysis_status !== 'manual_required' && (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle bg-red-100 text-red-700 border-red-300">
                           다운로드 미완료
                         </span>
