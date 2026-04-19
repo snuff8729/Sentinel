@@ -41,11 +41,6 @@ export function VersionsPage() {
     load()
   }
 
-  const handleRemoveArticle = async (groupId: number, articleId: number) => {
-    await versionApi.removeArticle(groupId, articleId)
-    load()
-  }
-
   const filtered = search
     ? groups.filter(g =>
         g.name.toLowerCase().includes(search.toLowerCase()) ||
