@@ -111,8 +111,10 @@ export const settingsApi = {
   testLLM: (settings: LLMSettings) => post<{ success: boolean; response?: string; error?: string }>('/settings/llm/test', settings),
 
   getEmbedding: () => get<EmbeddingSettings>('/settings/embedding'),
-  updateEmbedding: (settings: EmbeddingSettings) => put<{ status: string }>('/settings/embedding', settings),
+  updateEmbedding: (settings: EmbeddingSettings) => put<{ status: string; model_changed?: boolean }>('/settings/embedding', settings),
   testEmbedding: (settings: EmbeddingSettings) => post<{ success: boolean; dimensions?: number; error?: string }>('/settings/embedding/test', settings),
+  getEmbeddingStatus: () => get<{ stale: boolean; embedded_count: number; total_articles: number }>('/settings/embedding/status'),
+  recalculateEmbeddings: () => post<{ success: number; failed: number; total: number }>('/settings/embedding/recalculate'),
 }
 
 export const backupApi = {

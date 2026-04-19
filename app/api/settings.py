@@ -3,6 +3,8 @@ from __future__ import annotations
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from sqlmodel import select
+
 from app.db.engine import get_session
 from app.db.repository import get_setting, set_setting, get_all_settings
 from app.llm.analyze import DEFAULT_SYSTEM_PROMPT
@@ -74,10 +76,16 @@ def create_settings_router(engine) -> APIRouter:
     @router.put("/embedding")
     async def update_embedding_settings(settings: EmbeddingSettings):
         with get_session(engine) as session:
+            old_model = get_setting(session, "embedding_model") or ""
             set_setting(session, "embedding_base_url", settings.base_url)
             set_setting(session, "embedding_api_key", settings.api_key)
             set_setting(session, "embedding_model", settings.model)
-        return {"status": "saved"}
+
+            model_changed = old_model != settings.model and old_model != ""
+            if model_changed:
+                set_setting(session, "embedding_stale", "true")
+
+        return {"status": "saved", "model_changed": model_changed}
 
     @router.post("/embedding/test")
     async def test_embedding_connection(settings: EmbeddingSettings):
@@ -89,5 +97,60 @@ def create_settings_router(engine) -> APIRouter:
             model=settings.model,
         )
         return await client.test_connection()
+
+    @router.get("/embedding/status")
+    async def get_embedding_status():
+        from sqlalchemy import text
+        with get_session(engine) as session:
+            stale = get_setting(session, "embedding_stale") == "true"
+            try:
+                count = session.execute(text("SELECT COUNT(*) FROM article_vec")).scalar()
+            except Exception:
+                count = 0
+            total_articles = session.execute(text("SELECT COUNT(*) FROM article WHERE backup_status = 'completed'")).scalar()
+        return {
+            "stale": stale,
+            "embedded_count": count,
+            "total_articles": total_articles,
+        }
+
+    @router.post("/embedding/recalculate")
+    async def recalculate_embeddings():
+        import asyncio
+        from sqlalchemy import text
+        from app.llm.version import VersionDetector
+
+        with get_session(engine) as session:
+            base_url = get_setting(session, "embedding_base_url")
+            if not base_url:
+                return {"error": "임베딩이 설정되지 않았습니다."}
+            # 기존 벡터 테이블 드롭
+            try:
+                session.execute(text("DROP TABLE IF EXISTS article_vec"))
+                session.commit()
+            except Exception:
+                pass
+            set_setting(session, "embedding_stale", "false")
+
+        detector = VersionDetector(engine=engine)
+
+        # 완료된 게시글 목록
+        from app.db.models import Article
+        with get_session(engine) as session:
+            articles = session.exec(select(Article).where(Article.backup_status == "completed")).all()
+            article_ids = [a.id for a in articles]
+
+        success = 0
+        failed = 0
+        for aid in article_ids:
+            try:
+                if await detector.generate_embedding(aid):
+                    success += 1
+                else:
+                    failed += 1
+            except Exception:
+                failed += 1
+
+        return {"success": success, "failed": failed, "total": len(article_ids)}
 
     return router

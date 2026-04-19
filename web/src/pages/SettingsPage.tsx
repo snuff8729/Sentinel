@@ -147,8 +147,15 @@ function EmbeddingSettingsCard() {
   const [model, setModel] = useState('')
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
+  const [recalculating, setRecalculating] = useState(false)
   const [saveResult, setSaveResult] = useState('')
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [status, setStatus] = useState<{ stale: boolean; embedded_count: number; total_articles: number } | null>(null)
+  const [recalcResult, setRecalcResult] = useState('')
+
+  const loadStatus = () => {
+    settingsApi.getEmbeddingStatus().then(setStatus)
+  }
 
   useEffect(() => {
     settingsApi.getEmbedding().then(s => {
@@ -156,14 +163,31 @@ function EmbeddingSettingsCard() {
       setApiKey(s.api_key)
       setModel(s.model)
     })
+    loadStatus()
   }, [])
+
+  const handleRecalculate = async () => {
+    if (!confirm('모든 백업 게시글의 임베딩을 재계산합니다. 시간이 걸릴 수 있습니다. 계속할까요?')) return
+    setRecalculating(true)
+    setRecalcResult('')
+    try {
+      const result = await settingsApi.recalculateEmbeddings()
+      setRecalcResult(`완료: ${result.success}개 성공, ${result.failed}개 실패 (총 ${result.total}개)`)
+      loadStatus()
+    } catch (e) {
+      setRecalcResult(`오류: ${e}`)
+    } finally {
+      setRecalculating(false)
+    }
+  }
 
   const handleSave = async () => {
     setSaving(true)
     setSaveResult('')
     try {
-      await settingsApi.updateEmbedding({ base_url: baseUrl, api_key: apiKey, model })
-      setSaveResult('저장되었습니다.')
+      const result = await settingsApi.updateEmbedding({ base_url: baseUrl, api_key: apiKey, model })
+      setSaveResult(result.model_changed ? '저장되었습니다. 모델이 변경되어 임베딩 재계산이 필요합니다.' : '저장되었습니다.')
+      loadStatus()
     } catch {
       setSaveResult('저장 실패')
     } finally {
@@ -245,6 +269,36 @@ function EmbeddingSettingsCard() {
               : 'bg-red-50 border-red-200 text-red-700'
           }`}>
             {testResult.message}
+          </div>
+        )}
+
+        {/* 임베딩 상태 */}
+        {status && (
+          <div className="border-t pt-4 space-y-3">
+            <div className="text-sm">
+              <span className="text-muted-foreground">임베딩 현황: </span>
+              <span className="font-medium">{status.embedded_count}</span>
+              <span className="text-muted-foreground"> / {status.total_articles}개 게시글</span>
+            </div>
+
+            {status.stale && (
+              <div className="text-sm p-3 rounded border bg-yellow-50 border-yellow-200 text-yellow-700">
+                ⚠ 모델이 변경되어 기존 임베딩이 유효하지 않습니다. 재계산이 필요합니다.
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRecalculate}
+                disabled={recalculating || !baseUrl}
+              >
+                {recalculating ? '재계산 중...' : '임베딩 전체 재계산'}
+              </Button>
+            </div>
+
+            {recalcResult && <p className="text-sm text-green-600">{recalcResult}</p>}
           </div>
         )}
       </CardContent>
