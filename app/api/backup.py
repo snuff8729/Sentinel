@@ -414,6 +414,7 @@ hr { border: none; border-top: 1px solid #e5e7eb; margin: 16px 0; }
 blockquote { border-left: 3px solid #e5e7eb; padding-left: 12px; margin: 8px 0; color: #6b7280; }
 code { background: #f3f4f6; padding: 2px 4px; border-radius: 3px; font-size: 0.9em; }
 img.twemoji { display: inline; height: 1.2em; width: auto; vertical-align: middle; margin: 0 1px; border-radius: 0; }
+.arca-iframe-placeholder { display: inline-block; padding: 4px 10px; margin: 4px 0; border-radius: 6px; background: #f1f5f9; color: #64748b; font-size: 12px; border: 1px dashed #cbd5e1; user-select: none; }
 
 /* === 댓글 === */
 .article-comment { margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb; }

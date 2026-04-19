@@ -219,6 +219,9 @@ def parse_article_detail(html: str, article_id: int) -> ArticleDetail:
 
     content_el = soup.select_one(".article-body .article-content")
     if content_el:
+        # iframe은 외부 임베드(투표 등) — 플레이스홀더로 치환
+        for ifr in content_el.select("iframe"):
+            ifr.replace_with(_make_iframe_placeholder(ifr.get("title"), ifr.get("src")))
         # protocol-relative URL을 https로 변환 + referrer policy 추가
         for tag in content_el.select("[src]"):
             src = tag.get("src", "")
@@ -322,6 +325,8 @@ def _parse_comment_item(el: Tag) -> Comment | None:
     if message_el:
         for btn in message_el.select(".btn-more"):
             btn.decompose()
+        for ifr in message_el.select("iframe"):
+            ifr.replace_with(_make_iframe_placeholder(ifr.get("title"), ifr.get("src")))
         for tag in message_el.select("[src]"):
             src = tag.get("src", "")
             if src.startswith("//"):
@@ -350,6 +355,18 @@ def _parse_comment_item(el: Tag) -> Comment | None:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _make_iframe_placeholder(title: str | None, src: str | None) -> Tag:
+    """iframe을 그대로 렌더하면 localhost로 해석되거나 hotlink 차단됨 — UI 마커로 치환."""
+    from html import escape
+    label = title or "iframe"
+    hint = src or ""
+    frag = BeautifulSoup(
+        f'<span class="arca-iframe-placeholder" data-src="{escape(hint)}">📺 [iframe: {escape(label)}]</span>',
+        "html.parser",
+    )
+    return frag
+
 
 def _extract_author(el: Tag | None) -> str:
     """작성자 식별자 추출. 익명(ㅇㅇ)은 data-filter로 고유 ID가 붙어있을 수 있음.

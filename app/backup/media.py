@@ -39,6 +39,20 @@ def extract_backup_html(html: str) -> str:
             alt = img.get("alt", "")
             img.replace_with(NavigableString(alt))
 
+    # iframe(투표 등)은 그대로 렌더하면 localhost로 해석되거나 hotlink 차단됨 — 플레이스홀더 치환
+    from html import escape
+    for area in (head, content, comments):
+        if area is None:
+            continue
+        for ifr in area.select("iframe"):
+            label = ifr.get("title") or "iframe"
+            hint = ifr.get("src") or ""
+            frag = BeautifulSoup(
+                f'<span class="arca-iframe-placeholder" data-src="{escape(hint)}">📺 [iframe: {escape(label)}]</span>',
+                "html.parser",
+            )
+            ifr.replace_with(frag)
+
     parts = []
     parts.append('<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>')
     if head:
