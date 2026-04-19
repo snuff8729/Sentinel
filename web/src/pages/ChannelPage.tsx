@@ -73,13 +73,18 @@ export function ChannelPage() {
 
   // 업데이트 감지: 채널+카테고리별 localStorage 저장
   const detectKey = `sentinel_detect_${slug}_${category || '_all'}`
-  const [updateDetectEnabled, setUpdateDetectEnabled] = useState(() => {
-    try { return localStorage.getItem(detectKey) === '1' } catch { return false }
-  })
+  const [updateDetectEnabled, setUpdateDetectEnabled] = useState(false)
 
   useEffect(() => {
+    if (!slug) return
     const key = `sentinel_detect_${slug}_${category || '_all'}`
     try { setUpdateDetectEnabled(localStorage.getItem(key) === '1') } catch { setUpdateDetectEnabled(false) }
+    // URL에 남은 detect 파라미터 정리
+    if (searchParams.has('detect')) {
+      const params = new URLSearchParams(searchParams)
+      params.delete('detect')
+      setSearchParams(params, { replace: true })
+    }
   }, [slug, category])
 
   useEffect(() => {
