@@ -171,57 +171,6 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
                 ],
             }
 
-    @router.post("/upload/{article_id}")
-    async def upload_file(article_id: int, file: UploadFile = File(...), link_id: int | None = Form(None)):
-        """수동 다운로드한 파일을 업로드. link_id가 있으면 해당 링크의 download_status를 업데이트."""
-        data_dir = Path(worker._service._data_dir) if worker else Path("data")
-        save_dir = data_dir / "articles" / str(article_id) / "downloads"
-        save_dir.mkdir(parents=True, exist_ok=True)
-
-        filename = file.filename or "uploaded_file"
-        save_path = save_dir / filename
-        content = await file.read()
-        save_path.write_bytes(content)
-
-        local_path = f"articles/{article_id}/downloads/{filename}"
-        size_kb = len(content) / 1024
-
-        # link_id가 있으면 DB 업데이트
-        if link_id:
-            from app.db.engine import get_session
-            from app.db.models import ArticleLink
-            _engine = engine or worker._service._engine
-            with get_session(_engine) as session:
-                link = session.get(ArticleLink, link_id)
-                if link:
-                    link.download_status = "completed"
-                    link.download_path = local_path
-                    link.download_error = None
-                    session.add(link)
-                    session.commit()
-
-        # 전체 완료 체크
-        _engine = engine or worker._service._engine
-        from app.db.engine import get_session as _gs
-        from app.db.repository import get_links_for_article as _gl
-        with _gs(_engine) as session:
-            all_links = _gl(session, article_id)
-            dl_links = [l for l in all_links if l.link_type == "download"]
-            if dl_links and all(l.download_status == "completed" for l in dl_links):
-                from app.db.models import Article as _A
-                art = session.get(_A, article_id)
-                if art:
-                    art.download_complete = True
-                    session.add(art)
-                    session.commit()
-
-        return {
-            "status": "uploaded",
-            "filename": filename,
-            "local_path": local_path,
-            "size_kb": round(size_kb, 1),
-        }
-
     @router.post("/upload-free/{article_id}")
     async def upload_free_file(article_id: int, file: UploadFile = File(...), note: str = Form("")):
         """링크와 관계없는 자유 파일 업로드."""

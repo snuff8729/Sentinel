@@ -172,6 +172,7 @@ class BackupWorker:
                         local_path=result["local_path"],
                         size=result["size"],
                         note=f"자동 다운로드: {link.url}",
+                        source_link_id=link.id,
                     )
                     session.add(af)
                     session.commit()
@@ -184,18 +185,24 @@ class BackupWorker:
         self._check_download_complete(article_id)
 
     def _check_download_complete(self, article_id: int) -> None:
-        """모든 다운로드 링크가 completed이면 download_complete = True."""
+        """모든 다운로드 링크에 대응하는 파일이 있으면 download_complete = True."""
         from app.db.engine import get_session
         from app.db.repository import get_links_for_article
+        from app.db.models import Article, ArticleFile
+        from sqlmodel import select
 
         with get_session(self._service._engine) as session:
             links = get_links_for_article(session, article_id)
             download_links = [l for l in links if l.link_type == "download"]
             if not download_links:
                 return
-            all_done = all(l.download_status == "completed" for l in download_links)
-            if all_done:
-                from app.db.models import Article
+
+            files = session.exec(select(ArticleFile).where(ArticleFile.article_id == article_id)).all()
+            downloaded_link_ids = {f.source_link_id for f in files if f.source_link_id}
+
+            all_handled = all(l.id in downloaded_link_ids for l in download_links)
+
+            if all_handled:
                 article = session.get(Article, article_id)
                 if article:
                     article.download_complete = True

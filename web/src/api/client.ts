@@ -178,18 +178,6 @@ export const backupApi = {
   markDownloadComplete: (articleId: number) =>
     post<{ status: string }>(`/backup/complete-download/${articleId}`),
 
-  uploadFile: async (articleId: number, file: File, linkId?: number) => {
-    const formData = new FormData()
-    formData.append('file', file)
-    if (linkId) formData.append('link_id', String(linkId))
-    const res = await fetch(`${BASE}/backup/upload/${articleId}`, {
-      method: 'POST',
-      body: formData,
-    })
-    if (!res.ok) throw new Error(`API error: ${res.status}`)
-    return res.json() as Promise<{ status: string; filename: string; local_path: string; size_kb: number }>
-  },
-
   getStatuses: async (ids: number[]) => {
     const res = await fetch(`${BASE}/backup/status`, {
       method: 'POST',

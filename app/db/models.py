@@ -77,6 +77,7 @@ class ArticleFile(SQLModel, table=True):
     local_path: str
     size: int = 0
     note: str | None = None  # 사용자 메모
+    source_link_id: int | None = Field(default=None, foreign_key="articlelink.id")  # 자동 다운로드 출처
 
 
 class Download(SQLModel, table=True):
