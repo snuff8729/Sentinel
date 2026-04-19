@@ -44,12 +44,28 @@ arca.live 게시글 백업 및 자료 관리 도구.
 
 ## 개발 환경 구성
 
-### 요구 사항
+### 원클릭 설치 (Windows)
+
+외부 설치 없이 Python, Node.js, 의존성을 모두 자동으로 설치합니다.
+
+```powershell
+git clone <repo>
+cd sentinel
+.\install.ps1    # 설치 (최초 1회)
+.\run.ps1        # 서버 실행
+.\update.ps1     # 업데이트 (git pull + 재빌드)
+```
+
+> `runtime/` 폴더에 내장 Python, Node.js, uv가 설치됩니다.
+
+### 수동 설치
+
+#### 요구 사항
 - Python 3.14+
 - Node.js 18+
 - [uv](https://docs.astral.sh/uv/) (Python 패키지 매니저)
 
-### 백엔드 설치
+#### 백엔드 설치
 
 ```bash
 git clone <repo>
@@ -57,7 +73,7 @@ cd sentinel
 uv sync
 ```
 
-### 프론트엔드 설치
+#### 프론트엔드 설치
 
 ```bash
 cd web
