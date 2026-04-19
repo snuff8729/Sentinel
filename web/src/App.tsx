@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
+import { Toaster } from '@/components/ui/sonner'
 import { ChannelInput } from '@/components/ChannelInput'
 import { RecentChannels } from '@/components/RecentChannels'
 import { ChannelPage } from '@/pages/ChannelPage'
@@ -39,6 +40,7 @@ function App() {
           </Routes>
         </main>
       </div>
+      <Toaster />
     </BrowserRouter>
   )
 }

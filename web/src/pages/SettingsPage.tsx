@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { settingsApi } from '@/api/client'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 
 export function SettingsPage() {
   const [baseUrl, setBaseUrl] = useState('')
@@ -167,7 +168,6 @@ function EmbeddingSettingsCard() {
   }, [])
 
   const handleRecalculate = async () => {
-    if (!confirm('모든 백업 게시글의 임베딩을 재계산합니다. 시간이 걸릴 수 있습니다. 계속할까요?')) return
     setRecalculating(true)
     setRecalcResult('')
     try {
@@ -288,14 +288,17 @@ function EmbeddingSettingsCard() {
             )}
 
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRecalculate}
-                disabled={recalculating || !baseUrl}
-              >
-                {recalculating ? '재계산 중...' : '임베딩 전체 재계산'}
-              </Button>
+              <ConfirmDialog
+                trigger={
+                  <Button variant="outline" size="sm" disabled={recalculating || !baseUrl}>
+                    {recalculating ? '재계산 중...' : '임베딩 전체 재계산'}
+                  </Button>
+                }
+                title="임베딩 재계산"
+                description="모든 백업 게시글의 임베딩을 재계산합니다. 시간이 걸릴 수 있습니다. 계속할까요?"
+                onConfirm={handleRecalculate}
+                confirmText="재계산"
+              />
             </div>
 
             {recalcResult && <p className="text-sm text-green-600">{recalcResult}</p>}

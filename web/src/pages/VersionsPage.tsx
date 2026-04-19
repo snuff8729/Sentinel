@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { toast } from 'sonner'
 import { versionApi } from '@/api/client'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 import type { VersionGroupDetail } from '@/api/types'
 
 const STATUS_DOT: Record<string, string> = {
@@ -35,9 +37,9 @@ export function VersionsPage() {
     load()
   }
 
-  const handleDelete = async (groupId: number, name: string) => {
-    if (!confirm(`"${name}" 그룹을 삭제할까요? 게시글은 유지됩니다.`)) return
+  const handleDelete = async (groupId: number) => {
     await versionApi.deleteGroup(groupId)
+    toast.success('그룹이 삭제되었습니다.')
     load()
   }
 
@@ -103,12 +105,15 @@ export function VersionsPage() {
                     >
                       이름 수정
                     </Button>
-                    <Button
-                      size="sm" variant="ghost" className="h-7 text-xs text-destructive"
-                      onClick={() => handleDelete(group.id, group.name)}
-                    >
-                      삭제
-                    </Button>
+                    <ConfirmDialog
+                      trigger={
+                        <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive">삭제</Button>
+                      }
+                      title="그룹 삭제"
+                      description={`"${group.name}" 그룹을 삭제할까요? 게시글은 유지됩니다.`}
+                      onConfirm={() => handleDelete(group.id)}
+                      confirmText="삭제"
+                    />
                   </div>
                 )}
               </div>

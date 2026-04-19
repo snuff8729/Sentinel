@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ArticleList } from '@/components/ArticleList'
+import { toast } from 'sonner'
 import { channelApi, backupApi, followApi, settingsApi } from '@/api/client'
 import type { ArticleList as ArticleListType, Category, ChannelInfo } from '@/api/types'
 import { addRecentChannel } from '@/lib/recentChannels'
@@ -214,7 +215,7 @@ export function ChannelPage() {
       updateStatus(id, 'pending')
     }
     setSelected(new Set())
-    alert(`${count}개 게시글을 백업 큐에 추가했습니다.`)
+    toast.success(`${count}개 게시글을 백업 큐에 추가했습니다.`)
   }
 
   const setPage = (p: number) => {

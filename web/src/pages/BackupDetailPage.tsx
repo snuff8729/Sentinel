@@ -9,8 +9,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { toast } from 'sonner'
 import { backupApi, versionApi } from '@/api/client'
 import type { ArticleFileItem, ArticleLinkItem, BackupDetail, DownloadItem, VersionGroupDetail } from '@/api/types'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   completed: { label: '완료', className: 'bg-green-100 text-green-700 border-green-300' },
@@ -52,7 +54,7 @@ export function BackupDetailPage() {
   const handleRetry = async () => {
     if (!detail) return
     await backupApi.enqueue(detail.article.channel_slug, detail.article.id, true)
-    alert('백업 큐에 다시 추가했습니다.')
+    toast.success('백업 큐에 다시 추가했습니다.')
   }
 
   if (loading) return <div className="text-center py-8 text-muted-foreground">로딩 중...</div>
@@ -323,7 +325,7 @@ function ResourcesTab({ links, files, articleId, articleSlug, onUpdate }: {
       }
       onUpdate()
     } catch (e) {
-      alert(`업로드 실패: ${e}`)
+      toast.error(`업로드 실패: ${e}`)
     } finally {
       setUploading(false)
     }
@@ -445,17 +447,24 @@ function FileItem({ file, downloadLinks = [], onUpdate }: { file: ArticleFileIte
           </span>
         )}
         {file.note && !linkedLink && <span className="text-xs text-muted-foreground truncate max-w-[150px]">{file.note}</span>}
-        <button
-          className="text-xs px-2 py-0.5 rounded border border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
-          onClick={async (e) => {
-            e.stopPropagation()
-            if (!confirm(`"${file.filename}" 파일을 삭제할까요?`)) return
+        <ConfirmDialog
+          trigger={
+            <button
+              className="text-xs px-2 py-0.5 rounded border border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
+              onClick={e => e.stopPropagation()}
+            >
+              삭제
+            </button>
+          }
+          title="파일 삭제"
+          description={`"${file.filename}" 파일을 삭제할까요?`}
+          onConfirm={async () => {
             await backupApi.deleteFreeFile(file.id)
             onUpdate()
+            toast.success('파일이 삭제되었습니다.')
           }}
-        >
-          삭제
-        </button>
+          confirmText="삭제"
+        />
       </div>
       {expanded && (
         <div className="px-3 pb-3 pt-1 bg-muted/10 space-y-2">
