@@ -11,6 +11,8 @@ interface Props {
   onToggleAll: () => void
   backupStatuses?: Record<string, string>
   onSearchAuthor?: (author: string) => void
+  followedUsers?: Set<string>
+  onToggleFollow?: (username: string) => void
 }
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
@@ -21,7 +23,10 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   cancelled: { label: '취소', className: 'bg-gray-100 text-gray-500 border-gray-300' },
 }
 
-export function ArticleList({ slug, articles, selected, onToggle, onToggleAll, backupStatuses = {}, onSearchAuthor }: Props) {
+export function ArticleList({
+  slug, articles, selected, onToggle, onToggleAll,
+  backupStatuses = {}, onSearchAuthor, followedUsers = new Set(), onToggleFollow,
+}: Props) {
   const allSelected = articles.length > 0 && articles.every(a => selected.has(a.id))
 
   return (
@@ -35,9 +40,15 @@ export function ArticleList({ slug, articles, selected, onToggle, onToggleAll, b
       {articles.map((article) => {
         const status = backupStatuses[String(article.id)]
         const badgeInfo = status ? STATUS_BADGE[status] : null
+        const isFollowed = followedUsers.has(article.author)
 
         return (
-          <div key={article.id} className="flex items-start gap-3 px-3 py-2.5 border-b last:border-b-0 hover:bg-muted/30">
+          <div
+            key={article.id}
+            className={`flex items-start gap-3 px-3 py-2.5 border-b last:border-b-0 hover:bg-muted/30 ${
+              isFollowed ? 'bg-amber-50/50' : ''
+            }`}
+          >
             <div className="pt-0.5">
               <Checkbox
                 checked={selected.has(article.id)}
@@ -66,19 +77,36 @@ export function ArticleList({ slug, articles, selected, onToggle, onToggleAll, b
                 )}
               </Link>
 
-              {/* 아랫줄: ★ + 작성자 + 날짜 + 조회 + 추천 */}
+              {/* 아랫줄: ★ + 팔로우 + 작성자 + 날짜 + 조회 + 추천 */}
               <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                 {article.is_best && (
                   <span className="text-yellow-500">★</span>
                 )}
+                {isFollowed && (
+                  <span className="text-amber-500 text-[10px]">♥</span>
+                )}
                 <button
-                  className="hover:underline hover:text-foreground"
+                  className={`hover:underline ${isFollowed ? 'text-amber-600 font-medium' : 'hover:text-foreground'}`}
                   onClick={(e) => {
                     e.stopPropagation()
                     onSearchAuthor?.(article.author)
                   }}
                 >
                   {article.author}
+                </button>
+                <button
+                  className={`text-[10px] px-1 py-0 rounded border transition-colors ${
+                    isFollowed
+                      ? 'border-amber-300 bg-amber-100 text-amber-600 hover:bg-amber-200'
+                      : 'border-gray-300 text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onToggleFollow?.(article.author)
+                  }}
+                  title={isFollowed ? '팔로우 해제' : '팔로우'}
+                >
+                  {isFollowed ? '팔로잉' : '+'}
                 </button>
                 <span>·</span>
                 <span>{new Date(article.created_at).toLocaleDateString('ko-KR')}</span>

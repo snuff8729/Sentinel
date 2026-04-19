@@ -94,6 +94,15 @@ export const articleApi = {
     post<{ links: AnalyzedLink[]; error?: string }>(`/article/${slug}/${id}/analyze-links`),
 }
 
+export const followApi = {
+  list: () => get<{ username: string; note: string | null }[]>('/follow/'),
+  usernames: () => get<string[]>('/follow/usernames'),
+  follow: (username: string, note?: string) =>
+    post<{ status: string }>('/follow/', { username, note }),
+  unfollow: (username: string) =>
+    del<{ status: string }>(`/follow/${encodeURIComponent(username)}`),
+}
+
 export const settingsApi = {
   getLLM: () => get<LLMSettings>('/settings/llm'),
   getDefaultPrompt: () => get<{ prompt: string }>('/settings/llm/default-prompt'),

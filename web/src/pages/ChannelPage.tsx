@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ArticleList } from '@/components/ArticleList'
-import { channelApi, backupApi } from '@/api/client'
+import { channelApi, backupApi, followApi } from '@/api/client'
 import type { ArticleList as ArticleListType, Category, ChannelInfo } from '@/api/types'
 import { addRecentChannel } from '@/lib/recentChannels'
 import { useSSE } from '@/hooks/useSSE'
@@ -28,6 +28,7 @@ export function ChannelPage() {
   const [targetInput, setTargetInput] = useState('전체')
   const [loading, setLoading] = useState(false)
   const [backupStatuses, setBackupStatuses] = useState<Record<string, string>>({})
+  const [followedUsers, setFollowedUsers] = useState<Set<string>>(new Set())
 
   const SEARCH_TARGETS: Record<string, string> = {
     '전체': 'all',
@@ -74,6 +75,7 @@ export function ChannelPage() {
       addRecentChannel(slug, info.name, info.icon_url ?? undefined)
     })
     channelApi.getCategories(slug).then(setCategories)
+    followApi.usernames().then(u => setFollowedUsers(new Set(u)))
   }, [slug])
 
   // URL 파라미터가 바뀔 때마다 데이터 로드 (검색 포함)
@@ -113,6 +115,16 @@ export function ChannelPage() {
 
   const handleSearchAuthor = (author: string) => {
     updateParams({ keyword: author, target: 'nickname' })
+  }
+
+  const handleToggleFollow = async (username: string) => {
+    if (followedUsers.has(username)) {
+      await followApi.unfollow(username)
+      setFollowedUsers(prev => { const next = new Set(prev); next.delete(username); return next })
+    } else {
+      await followApi.follow(username)
+      setFollowedUsers(prev => new Set(prev).add(username))
+    }
   }
 
   const handleClearSearch = () => {
@@ -250,6 +262,8 @@ export function ChannelPage() {
             onToggleAll={handleToggleAll}
             backupStatuses={backupStatuses}
             onSearchAuthor={handleSearchAuthor}
+            followedUsers={followedUsers}
+            onToggleFollow={handleToggleFollow}
           />
           <div className="flex justify-center gap-1">
             {Array.from({ length: data.total_pages }, (_, i) => i + 1).map(p => (

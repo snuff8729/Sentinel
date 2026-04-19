@@ -16,6 +16,12 @@ class Article(SQLModel, table=True):
     analysis_status: str = Field(default="none")  # "none" | "pending" | "completed" | "failed"
     analysis_error: str | None = None
 
+class FollowedUser(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    username: str = Field(index=True, unique=True)
+    note: str | None = None  # 메모 (선택)
+
+
 class Setting(SQLModel, table=True):
     key: str = Field(primary_key=True)
     value: str

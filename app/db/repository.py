@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime, timezone
 from sqlmodel import Session, select
-from app.db.models import Article, ArticleLink, Download, Setting
+from app.db.models import Article, ArticleLink, Download, FollowedUser, Setting
 
 def create_article(session: Session, *, id: int, channel_slug: str, title: str, author: str,
     created_at: datetime, url: str, category: str | None = None) -> Article:
@@ -100,6 +100,41 @@ def update_article_analysis(session: Session, article_id: int, status: str, *, e
     article.analysis_error = error
     session.add(article)
     session.commit()
+
+
+def follow_user(session: Session, username: str, note: str | None = None) -> FollowedUser:
+    existing = session.exec(select(FollowedUser).where(FollowedUser.username == username)).first()
+    if existing:
+        if note is not None:
+            existing.note = note
+            session.add(existing)
+            session.commit()
+        return existing
+    fu = FollowedUser(username=username, note=note)
+    session.add(fu)
+    session.commit()
+    session.refresh(fu)
+    return fu
+
+
+def unfollow_user(session: Session, username: str) -> None:
+    existing = session.exec(select(FollowedUser).where(FollowedUser.username == username)).first()
+    if existing:
+        session.delete(existing)
+        session.commit()
+
+
+def get_followed_users(session: Session) -> list[FollowedUser]:
+    return list(session.exec(select(FollowedUser)).all())
+
+
+def is_followed(session: Session, username: str) -> bool:
+    return session.exec(select(FollowedUser).where(FollowedUser.username == username)).first() is not None
+
+
+def get_followed_usernames(session: Session) -> set[str]:
+    users = session.exec(select(FollowedUser)).all()
+    return {u.username for u in users}
 
 
 def get_setting(session: Session, key: str) -> str | None:
