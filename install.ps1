@@ -83,8 +83,10 @@ Write-Host "  Dependencies installed" -ForegroundColor Green
 Write-Host "[5/5] Building frontend..." -ForegroundColor Yellow
 $env:PATH = "$NODE_DIR;$env:PATH"
 Push-Location (Join-Path $ROOT "web")
+$ErrorActionPreference = "Continue"
 & $NPM install --silent 2>&1 | Out-Null
-& $NPM run build 2>&1 | Where-Object { $_ -notmatch "plugin builtin" }
+& $NPM run build 2>&1 | Out-Null
+$ErrorActionPreference = "Stop"
 Pop-Location
 Write-Host "  Frontend built" -ForegroundColor Green
 

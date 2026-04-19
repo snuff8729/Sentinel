@@ -38,8 +38,10 @@ Write-Host "  Done" -ForegroundColor Green
 
 Write-Host "[3/3] Rebuilding frontend..." -ForegroundColor Yellow
 Push-Location (Join-Path $ROOT "web")
+$ErrorActionPreference = "Continue"
 & $NPM install --silent 2>&1 | Out-Null
-& $NPM run build 2>&1 | Where-Object { $_ -notmatch "plugin builtin" }
+& $NPM run build 2>&1 | Out-Null
+$ErrorActionPreference = "Stop"
 Pop-Location
 Write-Host "  Done" -ForegroundColor Green
 
