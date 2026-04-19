@@ -158,7 +158,14 @@ export function BackupDetailPage() {
         </div>
       )}
       {activeTab === 'files' && <FileList downloads={downloads} />}
-      {activeTab === 'links' && <LinkList links={links} articleSlug={article.channel_slug} />}
+      {activeTab === 'links' && <LinkList links={links} articleSlug={article.channel_slug} articleId={article.id} onUpdate={() => {
+        backupApi.getDetail(article.id).then(d => {
+          setDetail(d)
+          if (d.article?.version_group_id) {
+            versionApi.getGroup(d.article.version_group_id).then(setVersionGroup).catch(() => {})
+          }
+        })
+      }} />}
       {activeTab === 'versions' && <VersionGroupPanel group={versionGroup} currentId={article.id} />}
     </div>
   )
@@ -222,7 +229,7 @@ const LINK_TYPE_STYLE: Record<string, { label: string; className: string }> = {
   other: { label: '기타', className: 'bg-gray-100 text-gray-500 border-gray-300' },
 }
 
-function LinkList({ links, articleSlug }: { links: ArticleLinkItem[]; articleSlug: string }) {
+function LinkList({ links, articleSlug, articleId, onUpdate }: { links: ArticleLinkItem[]; articleSlug: string; articleId: number; onUpdate?: () => void }) {
   if (links.length === 0) {
     return <div className="text-center py-8 text-muted-foreground">분석된 링크가 없습니다.</div>
   }
@@ -238,7 +245,7 @@ function LinkList({ links, articleSlug }: { links: ArticleLinkItem[]; articleSlu
           <p className="text-sm font-medium text-blue-600">다운로드 ({downloadLinks.length})</p>
           <div className="border rounded-md">
             {downloadLinks.map(l => (
-              <LinkItem key={l.id} link={l} articleSlug={articleSlug} />
+              <LinkItem key={l.id} link={l} articleSlug={articleSlug} articleId={articleId} onUpdate={onUpdate} />
             ))}
           </div>
         </div>
@@ -248,7 +255,7 @@ function LinkList({ links, articleSlug }: { links: ArticleLinkItem[]; articleSlu
           <p className="text-sm font-medium text-purple-600">관련 게시글 ({referenceLinks.length})</p>
           <div className="border rounded-md">
             {referenceLinks.map(l => (
-              <LinkItem key={l.id} link={l} articleSlug={articleSlug} />
+              <LinkItem key={l.id} link={l} articleSlug={articleSlug} articleId={articleId} onUpdate={onUpdate} />
             ))}
           </div>
         </div>
@@ -258,7 +265,7 @@ function LinkList({ links, articleSlug }: { links: ArticleLinkItem[]; articleSlu
           <p className="text-sm font-medium text-gray-500">기타 ({otherLinks.length})</p>
           <div className="border rounded-md">
             {otherLinks.map(l => (
-              <LinkItem key={l.id} link={l} articleSlug={articleSlug} />
+              <LinkItem key={l.id} link={l} articleSlug={articleSlug} articleId={articleId} onUpdate={onUpdate} />
             ))}
           </div>
         </div>
@@ -273,10 +280,24 @@ const DL_STATUS_STYLE: Record<string, { label: string; className: string }> = {
   manual_required: { label: '수동', className: 'bg-amber-100 text-amber-700 border-amber-300' },
 }
 
-function LinkItem({ link }: { link: ArticleLinkItem; articleSlug?: string }) {
+function LinkItem({ link, articleId, onUpdate }: { link: ArticleLinkItem; articleSlug?: string; articleId?: number; onUpdate?: () => void }) {
   const style = LINK_TYPE_STYLE[link.type] ?? LINK_TYPE_STYLE.other
   const arcaMatch = link.url.match(/arca\.live\/b\/([^/]+)\/(\d+)/)
   const dlStatus = link.download_status ? DL_STATUS_STYLE[link.download_status] : null
+  const fileInputId = `upload-${link.id}`
+  const showUpload = link.type === 'download' && link.download_status !== 'completed'
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !articleId) return
+    try {
+      await backupApi.uploadFile(articleId, file, link.id)
+      onUpdate?.()
+    } catch (err) {
+      alert(`업로드 실패: ${err}`)
+    }
+    e.target.value = ''
+  }
 
   return (
     <div className="flex items-center gap-2 px-3 py-2 border-b last:border-b-0 text-sm hover:bg-muted/20">
@@ -291,6 +312,17 @@ function LinkItem({ link }: { link: ArticleLinkItem; articleSlug?: string }) {
       <span className="flex-1 truncate" title={link.download_error || ''}>{link.label}</span>
       {link.source_article_id && (
         <span className="text-xs text-muted-foreground">← #{link.source_article_id}</span>
+      )}
+      {showUpload && (
+        <>
+          <input type="file" id={fileInputId} className="hidden" onChange={handleUpload} />
+          <label
+            htmlFor={fileInputId}
+            className="text-xs px-2 py-0.5 rounded border border-green-300 bg-green-50 text-green-600 hover:bg-green-100 cursor-pointer"
+          >
+            파일 업로드
+          </label>
+        </>
       )}
       {arcaMatch ? (
         <Link
