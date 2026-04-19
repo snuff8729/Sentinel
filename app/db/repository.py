@@ -215,9 +215,9 @@ def store_embedding(session: Session, article_id: int, embedding: list[float]) -
     from sqlalchemy import text
     dim = len(embedding)
     vec_json = json.dumps(embedding)
-    # 가상 테이블이 없으면 생성
+    # 가상 테이블이 없으면 생성 (코사인 distance)
     session.execute(text(
-        f"CREATE VIRTUAL TABLE IF NOT EXISTS article_vec USING vec0(article_id INTEGER PRIMARY KEY, embedding float[{dim}])"
+        f"CREATE VIRTUAL TABLE IF NOT EXISTS article_vec USING vec0(article_id INTEGER PRIMARY KEY, embedding float[{dim}] distance_metric=cosine)"
     ))
     # upsert: delete + insert
     session.execute(text("DELETE FROM article_vec WHERE article_id = :id"), {"id": article_id})

@@ -137,19 +137,17 @@ class UpdateDetector:
         target_articles = uncached_articles
         logger.info("업데이트 감지: %d개 게시글 대상 (%d개 캐시)", len(target_articles), len(cached_results))
 
-        # 3. 배치 임베딩
-        texts = [f"{a['author']}: {a['title']}" for a in target_articles]
-        try:
-            embeddings = await embed_client.embed_batch(texts)
-        except Exception as e:
-            logger.warning("배치 임베딩 실패: %s", e)
-            return []
-
-        # 4. sqlite-vec로 유사 게시글 검색
+        # 3+4. 개별 임베딩 + sqlite-vec 검색
         results: list[dict] = []
         llm = self._get_llm_client()
 
-        for article, embedding in zip(target_articles, embeddings):
+        for article in target_articles:
+            text = f"{article['author']}: {article['title']}"
+            try:
+                embedding = await embed_client.embed(text)
+            except Exception as e:
+                logger.warning("임베딩 실패 (%d): %s", article["id"], e)
+                continue
             with get_session(self._engine) as session:
                 similar = search_similar_articles(
                     session, embedding, article["author"], article["id"], limit=1

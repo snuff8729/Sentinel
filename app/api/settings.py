@@ -75,15 +75,23 @@ def create_settings_router(engine) -> APIRouter:
 
     @router.put("/embedding")
     async def update_embedding_settings(settings: EmbeddingSettings):
+        from sqlalchemy import text as sql_text
         with get_session(engine) as session:
             old_model = get_setting(session, "embedding_model") or ""
+            old_url = get_setting(session, "embedding_base_url") or ""
             set_setting(session, "embedding_base_url", settings.base_url)
             set_setting(session, "embedding_api_key", settings.api_key)
             set_setting(session, "embedding_model", settings.model)
 
-            model_changed = old_model != settings.model and old_model != ""
+            model_changed = (old_model != settings.model and old_model != "") or (old_url != settings.base_url and old_url != "")
             if model_changed:
                 set_setting(session, "embedding_stale", "true")
+                # 업데이트 감지 캐시 클리어
+                try:
+                    session.execute(sql_text("DELETE FROM updatecheckcache"))
+                    session.commit()
+                except Exception:
+                    pass
 
         return {"status": "saved", "model_changed": model_changed}
 
