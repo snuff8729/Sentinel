@@ -22,7 +22,9 @@ interface Props {
 export function ConfirmDialog({ trigger, title, description, onConfirm, confirmText = '확인', cancelText = '취소' }: Props) {
   return (
     <AlertDialog>
-      <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
+      <AlertDialogTrigger render={<span />}>
+        {trigger}
+      </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
