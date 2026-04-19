@@ -105,11 +105,6 @@ export function HistoryPage() {
     }
   }
 
-  const handleRetry = async (e: React.MouseEvent, item: BackupHistoryItem) => {
-    e.stopPropagation()
-    await backupApi.enqueue(item.channel_slug, item.id, true)
-  }
-
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">백업 이력</h1>
@@ -227,17 +222,6 @@ export function HistoryPage() {
                           ? new Date(item.backed_up_at).toLocaleString('ko-KR')
                           : '—'}
                       </span>
-                      {item.backup_status !== 'pending' && item.backup_status !== 'in_progress' && (
-                        <>
-                          <span>·</span>
-                          <button
-                            className="px-2 py-0.5 rounded border border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
-                            onClick={(e) => handleRetry(e, item)}
-                          >
-                            재시도
-                          </button>
-                        </>
-                      )}
                     </div>
                   </div>
                 </div>
