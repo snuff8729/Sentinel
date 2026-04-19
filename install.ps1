@@ -1,6 +1,8 @@
 # Sentinel - 설치 스크립트
 # 내장 Python(uv 관리) + 내장 Node.js로 외부 종속성 없이 설치
 
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+$env:PYTHONIOENCODING = "utf-8"
 $ErrorActionPreference = "Stop"
 $ROOT = $PSScriptRoot
 $RUNTIME = Join-Path $ROOT "runtime"

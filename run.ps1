@@ -1,5 +1,7 @@
 # Sentinel - 실행 스크립트
 
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+$env:PYTHONIOENCODING = "utf-8"
 $ErrorActionPreference = "Stop"
 $ROOT = $PSScriptRoot
 $RUNTIME = Join-Path $ROOT "runtime"

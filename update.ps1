@@ -1,6 +1,8 @@
 # Sentinel - 업데이트 스크립트
 # git pull 후 의존성 업데이트 + 프론트엔드 재빌드
 
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+$env:PYTHONIOENCODING = "utf-8"
 $ErrorActionPreference = "Stop"
 $ROOT = $PSScriptRoot
 $RUNTIME = Join-Path $ROOT "runtime"
