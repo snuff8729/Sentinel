@@ -69,8 +69,18 @@ export const channelApi = {
     return get<ArticleList>(`/channel/${slug}/articles${qs ? `?${qs}` : ''}`)
   },
 
-  search: (slug: string, keyword: string, target = 'all', page = 1) =>
-    get<ArticleList>(`/channel/${slug}/search?keyword=${encodeURIComponent(keyword)}&target=${target}&page=${page}`),
+  search: (slug: string, keyword: string, target = 'all', page = 1, params?: {
+    category?: string
+    mode?: string
+  }) => {
+    const searchParams = new URLSearchParams()
+    searchParams.set('keyword', keyword)
+    searchParams.set('target', target)
+    searchParams.set('page', String(page))
+    if (params?.category) searchParams.set('category', params.category)
+    if (params?.mode) searchParams.set('mode', params.mode)
+    return get<ArticleList>(`/channel/${slug}/search?${searchParams.toString()}`)
+  },
 }
 
 export const articleApi = {

@@ -64,6 +64,8 @@ class ArcaChannel:
         keyword: str,
         *,
         target: str = "all",
+        category: str | None = None,
+        mode: str | None = None,
         page: int = 1,
     ) -> ArticleList:
         params: dict = {
@@ -71,6 +73,10 @@ class ArcaChannel:
             "keyword": keyword,
             "p": page,
         }
+        if category is not None:
+            params["category"] = category
+        if mode is not None:
+            params["mode"] = mode
         resp = self._client.get(self.base_path, params=params)
         articles = parse_article_list(resp.text)
         current_page, total_pages = parse_pagination(resp.text)

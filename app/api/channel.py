@@ -48,6 +48,8 @@ def create_channel_router(client, engine=None) -> APIRouter:
         slug: str,
         keyword: str,
         target: str = "all",
+        category: str | None = None,
+        mode: str | None = None,
         page: int = 1,
     ):
         channel = ArcaChannel(client, slug)
@@ -55,6 +57,8 @@ def create_channel_router(client, engine=None) -> APIRouter:
             channel.search,
             keyword,
             target=target,
+            category=category,
+            mode=mode,
             page=page,
         )
         return result.model_dump()

@@ -83,7 +83,7 @@ export function ChannelPage() {
     setSelected(new Set())
 
     const fetchData = keyword
-      ? channelApi.search(slug, keyword, target || 'all', page)
+      ? channelApi.search(slug, keyword, target || 'all', page, { category, mode })
       : channelApi.getArticles(slug, { category, mode, page })
 
     fetchData
