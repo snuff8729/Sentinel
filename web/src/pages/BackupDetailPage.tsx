@@ -135,18 +135,6 @@ export function BackupDetailPage() {
         </button>
         <button
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'files'
-              ? 'border-primary text-foreground'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-          onClick={() => setActiveTab('files')}
-        >
-          파일 ({downloads.length})
-          {failedCount > 0 && <span className="text-red-500 ml-1">{failedCount} 실패</span>}
-          {warningCount > 0 && <span className="text-yellow-500 ml-1">{warningCount} 경고</span>}
-        </button>
-        <button
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'links'
               ? 'border-primary text-foreground'
               : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -166,6 +154,18 @@ export function BackupDetailPage() {
           onClick={() => setActiveTab('versions')}
         >
           버전 ({versionGroup?.articles.length ?? 0})
+        </button>
+        <button
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'files'
+              ? 'border-primary text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+          onClick={() => setActiveTab('files')}
+        >
+          파일 ({downloads.length})
+          {failedCount > 0 && <span className="text-red-500 ml-1">{failedCount} 실패</span>}
+          {warningCount > 0 && <span className="text-yellow-500 ml-1">{warningCount} 경고</span>}
         </button>
       </div>
 
