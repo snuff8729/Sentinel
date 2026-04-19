@@ -26,6 +26,7 @@ export function ArticleDetailPage() {
   const [versionResults, setVersionResults] = useState<{ id: number; name: string; author: string | null; article_count: number }[]>([])
   const [selectedGroup, setSelectedGroup] = useState<{ id: number; name: string } | 'new' | null>(null)
   const [backupQueued, setBackupQueued] = useState(false)
+  const [backupStatus, setBackupStatus] = useState<string | null>(null)
 
   useEffect(() => {
     if (!slug || !id) return
@@ -33,6 +34,7 @@ export function ArticleDetailPage() {
     setLoading(true)
     setLinks([])
     setAnalyzeError('')
+    setBackupStatus(null)
     Promise.all([
       articleApi.getDetail(slug, articleId),
       articleApi.getComments(slug, articleId),
@@ -40,6 +42,10 @@ export function ArticleDetailPage() {
       setDetail(d)
       setCommentsHtml(c.html)
     }).finally(() => setLoading(false))
+    // 백업 상태 확인
+    backupApi.getStatuses([articleId]).then(statuses => {
+      setBackupStatus(statuses[String(articleId)] || null)
+    })
   }, [slug, id])
 
   const handleSearchVersions = async (keyword: string) => {
@@ -92,10 +98,41 @@ export function ArticleDetailPage() {
 
       {/* 액션 */}
       <div className="space-y-3">
-        <div className="flex gap-2">
-          <Button onClick={() => { setShowVersionPicker(!showVersionPicker); setBackupQueued(false) }}>
-            이 글 백업
-          </Button>
+        <div className="flex gap-2 items-center">
+          {backupStatus === 'completed' || backupStatus === 'pending' || backupStatus === 'in_progress' ? (
+            <>
+              <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium border ${
+                backupStatus === 'completed' ? 'bg-green-100 text-green-700 border-green-300' :
+                backupStatus === 'in_progress' ? 'bg-blue-100 text-blue-700 border-blue-300 animate-pulse' :
+                'bg-yellow-100 text-yellow-700 border-yellow-300'
+              }`}>
+                {backupStatus === 'completed' ? '백업 완료' : backupStatus === 'in_progress' ? '백업 중' : '대기 중'}
+              </span>
+              <Link to={`/backup/${id}`}>
+                <Button size="sm" variant="outline">백업 보기</Button>
+              </Link>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => { setShowVersionPicker(!showVersionPicker); setBackupQueued(false) }}
+              >
+                다시 백업
+              </Button>
+            </>
+          ) : backupStatus === 'failed' ? (
+            <>
+              <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium border bg-red-100 text-red-700 border-red-300">
+                백업 실패
+              </span>
+              <Button onClick={() => { setShowVersionPicker(!showVersionPicker); setBackupQueued(false) }}>
+                재시도
+              </Button>
+            </>
+          ) : (
+            <Button onClick={() => { setShowVersionPicker(!showVersionPicker); setBackupQueued(false) }}>
+              이 글 백업
+            </Button>
+          )}
           <Button variant="outline" onClick={handleAnalyzeLinks} disabled={analyzing}>
             {analyzing ? '분석 중...' : '링크 분석 (LLM)'}
           </Button>
