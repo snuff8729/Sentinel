@@ -81,6 +81,7 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
         from app.db.engine import get_session
         from app.db.repository import get_article, get_downloads_for_article, get_links_for_article
         from app.db.models import Article, ArticleFile, ArticleVersion
+        from sqlmodel import select
         _engine = engine or worker._service._engine
         with get_session(_engine) as session:
             article = get_article(session, article_id)
@@ -94,7 +95,6 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
             files = session.exec(files_stmt).all()
 
             # 버전 관계
-            from sqlmodel import select
             versions_stmt = select(ArticleVersion).where(
                 (ArticleVersion.article_id == article_id) | (ArticleVersion.related_article_id == article_id)
             )
