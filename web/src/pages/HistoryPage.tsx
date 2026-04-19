@@ -148,6 +148,11 @@ export function HistoryPage() {
                           분석완료
                         </span>
                       )}
+                      {item.analysis_status === 'manual_required' && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle bg-amber-100 text-amber-700 border-amber-300">
+                          수동분류
+                        </span>
+                      )}
                       {item.analysis_status === 'failed' && (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle bg-orange-100 text-orange-700 border-orange-300">
                           분석실패
