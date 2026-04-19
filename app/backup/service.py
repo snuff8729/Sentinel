@@ -17,6 +17,7 @@ from app.db.repository import (
     delete_downloads_for_article,
     get_article,
     get_downloads_for_article,
+    get_or_create_solo_group,
     is_article_completed,
     update_article_status,
     update_download_status,
@@ -146,6 +147,7 @@ class BackupService:
                 )
             else:
                 update_article_status(session, article_id, "completed")
+                get_or_create_solo_group(session, article_id)
 
         _emit("article_completed", {
             "article_id": article_id,

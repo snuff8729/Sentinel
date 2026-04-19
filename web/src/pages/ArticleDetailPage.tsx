@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { articleApi, backupApi } from '@/api/client'
+import { articleApi, backupApi, versionApi } from '@/api/client'
+import { Input } from '@/components/ui/input'
 import type { AnalyzedLink, ArticleDetail } from '@/api/types'
 import '@/styles/article-content.css'
 
@@ -20,6 +21,10 @@ export function ArticleDetailPage() {
   const [links, setLinks] = useState<AnalyzedLink[]>([])
   const [analyzing, setAnalyzing] = useState(false)
   const [analyzeError, setAnalyzeError] = useState('')
+  const [showVersionPicker, setShowVersionPicker] = useState(false)
+  const [versionSearch, setVersionSearch] = useState('')
+  const [versionResults, setVersionResults] = useState<{ id: number; name: string; author: string | null; article_count: number }[]>([])
+  const [newGroupName, setNewGroupName] = useState('')
 
   useEffect(() => {
     if (!slug || !id) return
@@ -35,6 +40,29 @@ export function ArticleDetailPage() {
       setCommentsHtml(c.html)
     }).finally(() => setLoading(false))
   }, [slug, id])
+
+  const handleSearchVersions = async (keyword: string) => {
+    setVersionSearch(keyword)
+    if (keyword.trim().length < 1) { setVersionResults([]); return }
+    const results = await versionApi.searchGroups(keyword)
+    setVersionResults(results)
+  }
+
+  const handleAddToGroup = async (groupId: number) => {
+    if (!id) return
+    await versionApi.addArticle(groupId, Number(id))
+    setShowVersionPicker(false)
+    alert('버전 그룹에 추가했습니다.')
+  }
+
+  const handleCreateGroup = async () => {
+    if (!id || !newGroupName.trim()) return
+    const group = await versionApi.createGroup(newGroupName.trim(), detail?.author)
+    await versionApi.addArticle(group.id, Number(id))
+    setShowVersionPicker(false)
+    setNewGroupName('')
+    alert(`"${group.name}" 그룹을 생성하고 추가했습니다.`)
+  }
 
   const handleBackup = async () => {
     if (!slug || !id) return
@@ -86,10 +114,52 @@ export function ArticleDetailPage() {
       {/* 액션 */}
       <div className="flex gap-2">
         <Button onClick={handleBackup}>이 글 백업</Button>
+        <Button variant="outline" onClick={() => setShowVersionPicker(!showVersionPicker)}>
+          {showVersionPicker ? '닫기' : '버전 연결'}
+        </Button>
         <Button variant="outline" onClick={handleAnalyzeLinks} disabled={analyzing}>
           {analyzing ? '분석 중...' : '링크 분석 (LLM)'}
         </Button>
       </div>
+
+      {/* 버전 연결 패널 */}
+      {showVersionPicker && (
+        <div className="border rounded-md p-4 space-y-3 bg-muted/20">
+          <p className="text-sm font-medium">기존 버전 그룹에 연결</p>
+          <Input
+            value={versionSearch}
+            onChange={e => handleSearchVersions(e.target.value)}
+            placeholder="그룹명 또는 게시글 제목 검색..."
+          />
+          {versionResults.length > 0 && (
+            <div className="border rounded max-h-40 overflow-y-auto">
+              {versionResults.map(g => (
+                <button
+                  key={g.id}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-muted border-b last:border-b-0"
+                  onClick={() => handleAddToGroup(g.id)}
+                >
+                  <span className="font-medium">{g.name}</span>
+                  {g.author && <span className="text-muted-foreground ml-2">by {g.author}</span>}
+                  <span className="text-muted-foreground ml-2">({g.article_count}개)</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="border-t pt-3">
+            <p className="text-sm text-muted-foreground mb-2">또는 새 그룹 생성</p>
+            <div className="flex gap-2">
+              <Input
+                value={newGroupName}
+                onChange={e => setNewGroupName(e.target.value)}
+                placeholder="그룹명 (예: 루미나 마을)"
+                className="flex-1"
+              />
+              <Button size="sm" onClick={handleCreateGroup} disabled={!newGroupName.trim()}>생성</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 분석 에러 */}
       {analyzeError && (

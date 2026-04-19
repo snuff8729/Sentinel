@@ -9,6 +9,7 @@ import type {
   EmbeddingSettings,
   LLMSettings,
   QueueStatus,
+  VersionGroupDetail,
 } from './types'
 
 const BASE = '/api'
@@ -93,6 +94,23 @@ export const articleApi = {
 
   analyzeLinks: (slug: string, id: number) =>
     post<{ links: AnalyzedLink[]; error?: string }>(`/article/${slug}/${id}/analyze-links`),
+}
+
+export const versionApi = {
+  listGroups: () => get<VersionGroupDetail[]>('/versions/'),
+  createGroup: (name: string, author?: string) =>
+    post<{ id: number; name: string }>('/versions/', { name, author }),
+  getGroup: (groupId: number) => get<VersionGroupDetail>(`/versions/${groupId}`),
+  renameGroup: (groupId: number, name: string) =>
+    put<{ status: string }>(`/versions/${groupId}`, { name }),
+  deleteGroup: (groupId: number) =>
+    del<{ status: string }>(`/versions/${groupId}`),
+  addArticle: (groupId: number, articleId: number, versionLabel?: string) =>
+    post<{ status: string }>(`/versions/${groupId}/articles`, { article_id: articleId, version_label: versionLabel }),
+  removeArticle: (groupId: number, articleId: number) =>
+    del<{ status: string }>(`/versions/${groupId}/articles/${articleId}`),
+  searchGroups: (keyword: string) =>
+    get<{ id: number; name: string; author: string | null; article_count: number }[]>(`/versions/search/${encodeURIComponent(keyword)}`),
 }
 
 export const followApi = {

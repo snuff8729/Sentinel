@@ -127,6 +127,24 @@ export interface VersionRelation {
   related_id: number
 }
 
+export interface VersionGroupArticle {
+  id: number
+  title: string
+  author: string
+  version_label: string | null
+  backup_status: string
+  created_at: string | null
+  channel_slug: string
+}
+
+export interface VersionGroupDetail {
+  id: number
+  name: string
+  author: string | null
+  article_count?: number
+  articles: VersionGroupArticle[]
+}
+
 export interface AnalyzedLink {
   url: string
   type: 'download' | 'reference' | 'other'

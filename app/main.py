@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.backup import create_backup_router
 from app.api.channel import create_channel_router
 from app.api.follow import create_follow_router
+from app.api.version import create_version_router
 from app.api.settings import create_settings_router
 from app.backup.events import EventBus
 from app.backup.service import BackupService
@@ -46,6 +47,9 @@ async def startup():
 
     follow_router = create_follow_router(engine)
     app.include_router(follow_router, prefix="/api/follow")
+
+    version_router = create_version_router(engine)
+    app.include_router(version_router, prefix="/api/versions")
 
     asyncio.create_task(worker.run())
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime, timezone
 from sqlmodel import Session, select
-from app.db.models import Article, ArticleLink, Download, FollowedUser, Setting
+from app.db.models import Article, ArticleLink, Download, FollowedUser, Setting, VersionGroup
 
 def create_article(session: Session, *, id: int, channel_slug: str, title: str, author: str,
     created_at: datetime, url: str, category: str | None = None) -> Article:
@@ -135,6 +135,79 @@ def is_followed(session: Session, username: str) -> bool:
 def get_followed_usernames(session: Session) -> set[str]:
     users = session.exec(select(FollowedUser)).all()
     return {u.username for u in users}
+
+
+def create_version_group(session: Session, name: str, author: str | None = None) -> VersionGroup:
+    group = VersionGroup(name=name, author=author)
+    session.add(group)
+    session.commit()
+    session.refresh(group)
+    return group
+
+
+def get_version_group(session: Session, group_id: int) -> VersionGroup | None:
+    return session.get(VersionGroup, group_id)
+
+
+def get_all_version_groups(session: Session) -> list[VersionGroup]:
+    return list(session.exec(select(VersionGroup)).all())
+
+
+def update_version_group(session: Session, group_id: int, name: str) -> None:
+    group = session.get(VersionGroup, group_id)
+    if group:
+        group.name = name
+        session.add(group)
+        session.commit()
+
+
+def delete_version_group(session: Session, group_id: int) -> None:
+    # 소속 게시글의 group_id를 해제
+    articles = session.exec(select(Article).where(Article.version_group_id == group_id)).all()
+    for a in articles:
+        a.version_group_id = None
+        a.version_label = None
+        session.add(a)
+    group = session.get(VersionGroup, group_id)
+    if group:
+        session.delete(group)
+    session.commit()
+
+
+def add_article_to_group(session: Session, article_id: int, group_id: int, version_label: str | None = None) -> None:
+    article = session.get(Article, article_id)
+    if article:
+        article.version_group_id = group_id
+        article.version_label = version_label
+        session.add(article)
+        session.commit()
+
+
+def remove_article_from_group(session: Session, article_id: int) -> None:
+    article = session.get(Article, article_id)
+    if article:
+        article.version_group_id = None
+        article.version_label = None
+        session.add(article)
+        session.commit()
+
+
+def get_articles_in_group(session: Session, group_id: int) -> list[Article]:
+    return list(session.exec(select(Article).where(Article.version_group_id == group_id).order_by(Article.created_at.desc())).all())
+
+
+def get_or_create_solo_group(session: Session, article_id: int) -> VersionGroup:
+    """백업 시 그룹이 없으면 자동으로 1개짜리 그룹 생성."""
+    article = session.get(Article, article_id)
+    if not article:
+        raise ValueError(f"Article {article_id} not found")
+    if article.version_group_id:
+        return session.get(VersionGroup, article.version_group_id)
+    group = create_version_group(session, name=article.title, author=article.author)
+    article.version_group_id = group.id
+    session.add(article)
+    session.commit()
+    return group
 
 
 def store_embedding(session: Session, article_id: int, embedding: list[float]) -> None:

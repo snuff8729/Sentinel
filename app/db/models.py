@@ -2,6 +2,12 @@ from __future__ import annotations
 from datetime import datetime
 from sqlmodel import Field, SQLModel
 
+class VersionGroup(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str  # 그룹명 (예: "루미나 마을")
+    author: str | None = None  # 주 작성자
+
+
 class Article(SQLModel, table=True):
     id: int = Field(primary_key=True)
     channel_slug: str
@@ -13,13 +19,16 @@ class Article(SQLModel, table=True):
     backup_status: str = Field(default="pending")
     backup_error: str | None = None
     backed_up_at: datetime | None = None
-    analysis_status: str = Field(default="none")  # "none" | "pending" | "completed" | "failed"
+    analysis_status: str = Field(default="none")
     analysis_error: str | None = None
+    version_group_id: int | None = Field(default=None, foreign_key="versiongroup.id")
+    version_label: str | None = None  # "v1.04", "1.05 업데이트" 등
+
 
 class FollowedUser(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     username: str = Field(index=True, unique=True)
-    note: str | None = None  # 메모 (선택)
+    note: str | None = None
 
 
 class Setting(SQLModel, table=True):
@@ -29,20 +38,20 @@ class Setting(SQLModel, table=True):
 
 class ArticleVersion(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    article_id: int = Field(foreign_key="article.id")         # 새 글
-    related_article_id: int = Field(foreign_key="article.id")  # 기존 글
-    relation: str  # "new_version" | "same_series" | "unrelated"
-    confidence: float = 0.0  # 임베딩 유사도
-    llm_reason: str | None = None  # LLM 판별 이유
+    article_id: int = Field(foreign_key="article.id")
+    related_article_id: int = Field(foreign_key="article.id")
+    relation: str
+    confidence: float = 0.0
+    llm_reason: str | None = None
 
 
 class ArticleLink(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     article_id: int = Field(foreign_key="article.id")
     url: str
-    link_type: str  # "download" | "reference" | "other"
+    link_type: str
     label: str
-    source_article_id: int | None = None  # reference 따라간 경우 원래 게시글 ID
+    source_article_id: int | None = None
 
 
 class Download(SQLModel, table=True):
