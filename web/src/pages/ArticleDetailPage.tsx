@@ -113,7 +113,7 @@ export function ArticleDetailPage() {
               </Link>
               <Button
                 size="sm"
-                variant="ghost"
+                variant="outline"
                 onClick={() => { setShowVersionPicker(!showVersionPicker); setBackupQueued(false) }}
               >
                 다시 백업
