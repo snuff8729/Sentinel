@@ -60,6 +60,13 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
         from app.db.repository import get_article
         from app.db.models import VersionGroup
         _engine = engine or worker._service._engine
+
+        # 워커 큐에만 있고 DB에는 아직 없는 ID도 상태 반환 (enqueue 직후 새로고침 케이스)
+        worker_status = worker.get_status() if worker else {"pending": [], "current": None}
+        pending_ids = {r["article_id"] for r in worker_status.get("pending", [])}
+        current = worker_status.get("current")
+        current_id = current["article_id"] if current else None
+
         with get_session(_engine) as session:
             result: dict[str, dict] = {}
             for article_id in ids:
@@ -74,6 +81,10 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
                         "group_name": group_name,
                         "group_id": article.version_group_id,
                     }
+                elif article_id == current_id:
+                    result[str(article_id)] = {"status": "in_progress", "group_name": None, "group_id": None}
+                elif article_id in pending_ids:
+                    result[str(article_id)] = {"status": "pending", "group_name": None, "group_id": None}
             return result
 
     @router.get("/detail/{article_id}")
@@ -390,5 +401,13 @@ img.twemoji { display: inline; height: 1.2em; width: auto; vertical-align: middl
     async def cancel_backup(article_id: int):
         worker.cancel(article_id)
         return {"status": "cancelled"}
+
+    @router.get("/candidates/{article_id}")
+    async def related_candidates(article_id: int, min_similarity: float = 0.5, max_similarity: float = 0.8, limit: int = 10):
+        """수동 승인용 관련 게시글 후보 (유사도 중간대). 자동 연결 안 함."""
+        from app.llm.version import VersionDetector
+        _engine = engine or worker._service._engine
+        detector = VersionDetector(_engine)
+        return await detector.find_candidates(article_id, min_similarity, max_similarity, limit)
 
     return router

@@ -18,6 +18,7 @@ export function VersionsPage() {
   const [groups, setGroups] = useState<VersionGroupDetail[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [expandedId, setExpandedId] = useState<number | null>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editName, setEditName] = useState('')
   const [movingArticle, setMovingArticle] = useState<{ articleId: number; fromGroupId: number } | null>(null)
@@ -71,80 +72,100 @@ export function VersionsPage() {
           {search ? '검색 결과가 없습니다.' : '버전 그룹이 없습니다. 게시글을 백업하면 자동으로 생성됩니다.'}
         </div>
       ) : (
-        <div className="space-y-3">
-          {filtered.map(group => (
-            <div key={group.id} className="border rounded-md">
-              {/* 그룹 헤더 */}
-              <div className="flex items-center gap-3 px-4 py-3 bg-muted/30 border-b">
-                <div className="flex-1 min-w-0">
-                  {editingId === group.id ? (
-                    <div className="flex gap-2">
-                      <Input
-                        value={editName}
-                        onChange={e => setEditName(e.target.value)}
-                        className="h-7 text-sm"
-                        onKeyDown={e => e.key === 'Enter' && handleRename(group.id)}
-                        autoFocus
-                      />
-                      <Button size="sm" className="h-7" onClick={() => handleRename(group.id)}>저장</Button>
-                      <Button size="sm" variant="ghost" className="h-7" onClick={() => setEditingId(null)}>취소</Button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{group.name}</span>
-                      {group.author && <span className="text-xs text-muted-foreground">by {group.author}</span>}
-                      <span className="text-xs text-muted-foreground">({group.articles.length}개)</span>
+        <div className="border rounded-md">
+          {filtered.map(group => {
+            const isExpanded = expandedId === group.id
+            const isEditing = editingId === group.id
+            return (
+              <div key={group.id} className="border-b last:border-b-0">
+                {/* 그룹 행 (클릭하여 펼침) */}
+                <div
+                  className={`flex items-start gap-3 px-4 py-2.5 cursor-pointer hover:bg-muted/20 ${isExpanded ? 'bg-muted/10' : ''}`}
+                  onClick={() => !isEditing && setExpandedId(isExpanded ? null : group.id)}
+                >
+                  <span className="text-muted-foreground text-xs pt-1">
+                    {isExpanded ? '▼' : '▶'}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    {isEditing ? (
+                      <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                        <Input
+                          value={editName}
+                          onChange={e => setEditName(e.target.value)}
+                          className="h-7 text-sm"
+                          onKeyDown={e => e.key === 'Enter' && handleRename(group.id)}
+                          autoFocus
+                        />
+                        <Button size="sm" className="h-7" onClick={() => handleRename(group.id)}>저장</Button>
+                        <Button size="sm" variant="ghost" className="h-7" onClick={() => setEditingId(null)}>취소</Button>
+                      </div>
+                    ) : (
+                      <div className="leading-snug">
+                        <span className="font-medium align-middle">{group.name}</span>
+                        {group.author && <span className="text-xs text-muted-foreground ml-2 align-middle">by {group.author}</span>}
+                        <span className="text-xs text-muted-foreground ml-2 align-middle">({group.articles.length}개)</span>
+                      </div>
+                    )}
+                  </div>
+                  {!isEditing && (
+                    <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                      <Button
+                        size="sm" variant="ghost" className="h-7 text-xs"
+                        onClick={() => { setEditingId(group.id); setEditName(group.name) }}
+                      >
+                        이름 수정
+                      </Button>
+                      <span onClick={e => e.stopPropagation()}>
+                        <ConfirmDialog
+                          trigger={
+                            <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive">삭제</Button>
+                          }
+                          title="그룹 삭제"
+                          description={`"${group.name}" 그룹을 삭제할까요? 게시글은 유지됩니다.`}
+                          onConfirm={() => handleDelete(group.id)}
+                          confirmText="삭제"
+                        />
+                      </span>
                     </div>
                   )}
                 </div>
-                {editingId !== group.id && (
-                  <div className="flex gap-1">
-                    <Button
-                      size="sm" variant="ghost" className="h-7 text-xs"
-                      onClick={() => { setEditingId(group.id); setEditName(group.name) }}
-                    >
-                      이름 수정
-                    </Button>
-                    <ConfirmDialog
-                      trigger={
-                        <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive">삭제</Button>
-                      }
-                      title="그룹 삭제"
-                      description={`"${group.name}" 그룹을 삭제할까요? 게시글은 유지됩니다.`}
-                      onConfirm={() => handleDelete(group.id)}
-                      confirmText="삭제"
-                    />
+
+                {/* 펼침: 그룹에 속한 게시글 목록 */}
+                {isExpanded && (
+                  <div className="bg-muted/30 border-t">
+                    {group.articles.length === 0 ? (
+                      <div className="px-4 py-3 text-sm text-muted-foreground">게시글이 없습니다.</div>
+                    ) : (
+                      group.articles.map(article => (
+                        <div key={article.id} className="flex items-center gap-3 px-4 py-2 border-b last:border-b-0 hover:bg-muted/50 text-sm">
+                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT[article.backup_status] ?? 'bg-gray-300'}`} />
+                          <div className="flex-1 min-w-0">
+                            <Link to={`/backup/${article.id}`} className="hover:underline truncate block">
+                              {article.title}
+                            </Link>
+                            <div className="text-xs text-muted-foreground">
+                              {article.version_label && <span className="mr-2 font-medium">{article.version_label}</span>}
+                              {article.author}
+                              {article.created_at && ` · ${new Date(article.created_at).toLocaleDateString('ko-KR')}`}
+                            </div>
+                          </div>
+                          <Button
+                            size="sm" variant="ghost" className="h-6 text-xs text-muted-foreground"
+                            onClick={() => {
+                              setMovingArticle({ articleId: article.id, fromGroupId: group.id })
+                              setMoveSearch('')
+                            }}
+                          >
+                            이동
+                          </Button>
+                        </div>
+                      ))
+                    )}
                   </div>
                 )}
               </div>
-
-              {/* 게시글 목록 */}
-              {group.articles.map(article => (
-                <div key={article.id} className="flex items-center gap-3 px-4 py-2 border-b last:border-b-0 hover:bg-muted/20">
-                  <span className={`w-2 h-2 rounded-full ${STATUS_DOT[article.backup_status] ?? 'bg-gray-300'}`} />
-                  <div className="flex-1 min-w-0">
-                    <Link to={`/backup/${article.id}`} className="text-sm hover:underline truncate block">
-                      {article.title}
-                    </Link>
-                    <div className="text-xs text-muted-foreground">
-                      {article.version_label && <span className="mr-2 font-medium">{article.version_label}</span>}
-                      {article.author}
-                      {article.created_at && ` · ${new Date(article.created_at).toLocaleDateString('ko-KR')}`}
-                    </div>
-                  </div>
-                  <Button
-                    size="sm" variant="ghost" className="h-6 text-xs text-muted-foreground"
-                    onClick={() => {
-                      setMovingArticle({ articleId: article.id, fromGroupId: group.id })
-                      setMoveSearch('')
-                    }}
-                  >
-                    이동
-                  </Button>
-                </div>
-              ))}
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 

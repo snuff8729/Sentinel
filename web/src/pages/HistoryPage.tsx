@@ -1,9 +1,26 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { backupApi } from '@/api/client'
 import { useSSE } from '@/hooks/useSSE'
-import type { BackupHistoryItem, DownloadItem, SSEArticleStarted, SSEArticleCompleted } from '@/api/types'
+import type { ArticleFileItem, ArticleLinkItem, BackupHistoryItem, SSEArticleStarted, SSEArticleCompleted } from '@/api/types'
+
+type SortKey = 'backed_up_at' | 'created_at' | 'title' | 'author'
+type SortDir = 'asc' | 'desc'
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: 'backed_up_at', label: '백업일시' },
+  { value: 'created_at', label: '게시일' },
+  { value: 'title', label: '제목' },
+  { value: 'author', label: '작성자' },
+]
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   completed: { label: '완료', className: 'bg-green-100 text-green-700 border-green-300' },
@@ -13,31 +30,59 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   cancelled: { label: '취소', className: 'bg-gray-100 text-gray-500 border-gray-300' },
 }
 
-const DL_STATUS: Record<string, { label: string; color: string }> = {
-  completed: { label: '완료', color: 'text-green-600' },
-  failed: { label: '실패', color: 'text-red-600' },
-  pending: { label: '대기', color: 'text-yellow-600' },
-  in_progress: { label: '진행중', color: 'text-blue-600' },
-}
-
 export function HistoryPage() {
   const [items, setItems] = useState<BackupHistoryItem[]>([])
-  const [filter, setFilter] = useState<string | undefined>()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const filter = searchParams.get('filter') ?? undefined
+  const sortKey = (searchParams.get('sort') as SortKey | null) ?? 'backed_up_at'
+  const sortDir = (searchParams.get('dir') as SortDir | null) ?? 'desc'
+  const updateParams = (next: { filter?: string; sort?: SortKey; dir?: SortDir }) => {
+    const params: Record<string, string> = {}
+    const f = next.filter !== undefined ? next.filter : filter
+    const s = next.sort !== undefined ? next.sort : sortKey
+    const d = next.dir !== undefined ? next.dir : sortDir
+    if (f) params.filter = f
+    if (s && s !== 'backed_up_at') params.sort = s
+    if (d && d !== 'desc') params.dir = d
+    setSearchParams(params)
+  }
+  const setFilter = (next: string | undefined) => updateParams({ filter: next ?? '' })
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<number | null>(null)
-  const [downloads, setDownloads] = useState<DownloadItem[]>([])
+  const [expandedLinks, setExpandedLinks] = useState<ArticleLinkItem[]>([])
+  const [expandedFiles, setExpandedFiles] = useState<ArticleFileItem[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
 
-  const isSpecialFilter = filter === 'manual_download' || filter === 'download_incomplete'
+  const sortedItems = useMemo(() => {
+    const arr = [...items]
+    arr.sort((a, b) => {
+      let cmp = 0
+      if (sortKey === 'backed_up_at') {
+        const av = a.backed_up_at ? new Date(a.backed_up_at).getTime() : 0
+        const bv = b.backed_up_at ? new Date(b.backed_up_at).getTime() : 0
+        cmp = av - bv
+      } else if (sortKey === 'created_at') {
+        const av = a.created_at ? new Date(a.created_at).getTime() : 0
+        const bv = b.created_at ? new Date(b.created_at).getTime() : 0
+        cmp = av - bv
+      } else if (sortKey === 'title') {
+        cmp = a.title.localeCompare(b.title, 'ko')
+      } else if (sortKey === 'author') {
+        cmp = a.author.localeCompare(b.author, 'ko')
+      }
+      return sortDir === 'desc' ? -cmp : cmp
+    })
+    return arr
+  }, [items, sortKey, sortDir])
+
+  const isSpecialFilter = filter === 'download_incomplete'
 
   useEffect(() => {
     setLoading(true)
     const apiFilter = isSpecialFilter ? undefined : filter
     backupApi.getHistory(apiFilter)
       .then(data => {
-        if (filter === 'manual_download') {
-          setItems(data.filter(i => i.analysis_status === 'manual_required'))
-        } else if (filter === 'download_incomplete') {
+        if (filter === 'download_incomplete') {
           setItems(data.filter(i => i.backup_status === 'completed' && !i.download_complete && i.analysis_status !== 'none'))
         } else {
           setItems(data)
@@ -82,7 +127,10 @@ export function HistoryPage() {
         )
       )
       if (expandedId === d.article_id) {
-        backupApi.getDetail(d.article_id).then(detail => setDownloads(detail.downloads))
+        backupApi.getDetail(d.article_id).then(detail => {
+          setExpandedLinks(detail.links ?? [])
+          setExpandedFiles(detail.files ?? [])
+        })
       }
     },
     worker_paused: () => {},
@@ -92,14 +140,16 @@ export function HistoryPage() {
   const handleToggleDetail = async (articleId: number) => {
     if (expandedId === articleId) {
       setExpandedId(null)
-      setDownloads([])
+      setExpandedLinks([])
+      setExpandedFiles([])
       return
     }
     setExpandedId(articleId)
     setDetailLoading(true)
     try {
       const detail = await backupApi.getDetail(articleId)
-      setDownloads(detail.downloads)
+      setExpandedLinks(detail.links ?? [])
+      setExpandedFiles(detail.files ?? [])
     } finally {
       setDetailLoading(false)
     }
@@ -122,18 +172,36 @@ export function HistoryPage() {
           </Button>
         ))}
         <Button
-          variant={filter === 'manual_download' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setFilter(filter === 'manual_download' ? undefined : 'manual_download')}
-        >
-          수동 다운로드 필요
-        </Button>
-        <Button
           variant={filter === 'download_incomplete' ? 'default' : 'outline'}
           size="sm"
           onClick={() => setFilter(filter === 'download_incomplete' ? undefined : 'download_incomplete')}
         >
           다운로드 미완료
+        </Button>
+      </div>
+
+      {/* 정렬 */}
+      <div className="flex items-center gap-2 text-sm">
+        <span className="text-muted-foreground">정렬</span>
+        <Select value={sortKey} onValueChange={(v) => v && updateParams({ sort: v as SortKey })}>
+          <SelectTrigger className="w-32 h-8 text-xs">
+            <SelectValue>
+              {(v) => SORT_OPTIONS.find(o => o.value === v)?.label ?? v}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {SORT_OPTIONS.map(opt => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => updateParams({ dir: sortDir === 'desc' ? 'asc' : 'desc' })}
+          title={sortDir === 'desc' ? '내림차순' : '오름차순'}
+        >
+          {sortDir === 'desc' ? '↓' : '↑'}
         </Button>
       </div>
 
@@ -146,11 +214,11 @@ export function HistoryPage() {
 
       {loading ? (
         <div className="text-center py-8 text-muted-foreground">로딩 중...</div>
-      ) : items.length === 0 ? (
+      ) : sortedItems.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">이력이 없습니다.</div>
       ) : (
         <div className="border rounded-md">
-          {items.map(item => {
+          {sortedItems.map(item => {
             const badgeInfo = STATUS_BADGE[item.backup_status] ?? { label: item.backup_status, className: 'bg-gray-100 text-gray-500 border-gray-300' }
             const isExpanded = expandedId === item.id
 
@@ -170,7 +238,7 @@ export function HistoryPage() {
                       <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle ${badgeInfo.className}`}>
                         {badgeInfo.label}
                       </span>
-                      {item.backup_status === 'completed' && item.download_complete === false && item.analysis_status !== 'none' && item.analysis_status !== 'manual_required' && (
+                      {item.backup_status === 'completed' && item.download_complete === false && item.analysis_status !== 'none' && (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle bg-red-100 text-red-700 border-red-300">
                           다운로드 미완료
                         </span>
@@ -211,44 +279,59 @@ export function HistoryPage() {
                   </div>
                 </div>
 
-                {/* 상세 펼침 */}
+                {/* 상세 펼침: 자료 (링크 + 첨부 파일) */}
                 {isExpanded && (
                   <div className="bg-muted/30 border-t px-4 py-3">
                     {detailLoading ? (
                       <div className="text-center py-4 text-sm text-muted-foreground">로딩 중...</div>
-                    ) : (
-                      <div className="space-y-2">
-                        <div className="text-sm font-medium">
-                          파일 {downloads.length}개
-                          {(() => {
-                            const failed = downloads.filter(d => d.status === 'failed').length
-                            const warned = downloads.filter(d => d.warning).length
-                            const parts: string[] = []
-                            if (failed > 0) parts.push(`${failed} 실패`)
-                            if (warned > 0) parts.push(`${warned} 경고`)
-                            return parts.length > 0 ? ` — ${parts.join(', ')}` : ''
-                          })()}
-                        </div>
-                        <div className="max-h-80 overflow-y-auto border rounded bg-background">
-                          {downloads.map(d => {
-                            const dlStatus = DL_STATUS[d.status] ?? { label: d.status, color: '' }
-                            return (
-                              <div key={d.id} className="flex items-center gap-3 px-3 py-1.5 border-b last:border-b-0 text-xs hover:bg-muted/20">
-                                <span className="font-mono truncate flex-1" title={d.url}>
-                                  {d.local_path.split('/').pop()}
-                                </span>
-                                <span className="w-14 text-muted-foreground">{d.file_type}</span>
-                                <span className={`w-10 font-medium ${dlStatus.color}`}>{dlStatus.label}</span>
-                                <span className="flex-1 truncate">
-                                  {d.error && <span className="text-red-600">{d.error}</span>}
-                                  {d.warning && <span className="text-yellow-600">⚠ {d.warning}</span>}
-                                </span>
-                              </div>
-                            )
-                          })}
-                        </div>
+                    ) : (() => {
+                      const downloadLinks = expandedLinks.filter(l => l.type === 'download')
+                      if (downloadLinks.length === 0 && expandedFiles.length === 0) {
+                        return <div className="text-sm text-muted-foreground py-2">자료가 없습니다.</div>
+                      }
+                      return (
+                      <div className="space-y-3">
+                        {downloadLinks.length > 0 && (
+                          <div className="space-y-1">
+                            <div className="text-xs font-medium text-muted-foreground">다운로드 링크 {downloadLinks.length}개</div>
+                            <div className="max-h-60 overflow-y-auto border rounded bg-background">
+                              {downloadLinks.map(l => (
+                                <div key={l.id} className="flex items-center gap-3 px-3 py-1.5 border-b last:border-b-0 text-xs hover:bg-muted/20">
+                                  <a href={l.url} target="_blank" rel="noopener noreferrer" className="flex-1 truncate text-blue-600 hover:underline" title={l.url}>
+                                    {l.label || l.url}
+                                  </a>
+                                  {l.download_status && (
+                                    <span className={`w-16 text-right ${l.download_status === 'completed' ? 'text-green-600' : l.download_status === 'failed' ? 'text-red-600' : 'text-muted-foreground'}`}>
+                                      {l.download_status}
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {expandedFiles.length > 0 && (
+                          <div className="space-y-1">
+                            <div className="text-xs font-medium text-muted-foreground">첨부 파일 {expandedFiles.length}개</div>
+                            <div className="max-h-60 overflow-y-auto border rounded bg-background">
+                              {expandedFiles.map(f => {
+                                const sizeLabel = f.size >= 1024 * 1024
+                                  ? `${(f.size / 1024 / 1024).toFixed(1)}MB`
+                                  : `${(f.size / 1024).toFixed(1)}KB`
+                                return (
+                                  <div key={f.id} className="flex items-center gap-3 px-3 py-1.5 border-b last:border-b-0 text-xs hover:bg-muted/20">
+                                    <span className="font-mono truncate flex-1" title={f.filename}>{f.filename}</span>
+                                    <span className="w-16 text-right text-muted-foreground">{sizeLabel}</span>
+                                    {f.note && <span className="truncate max-w-[200px] text-muted-foreground">{f.note}</span>}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
+                      )
+                    })()}
                   </div>
                 )}
               </div>

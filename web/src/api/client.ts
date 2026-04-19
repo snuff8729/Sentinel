@@ -172,6 +172,11 @@ export const backupApi = {
   markDownloadComplete: (articleId: number) =>
     post<{ status: string }>(`/backup/complete-download/${articleId}`),
 
+  getCandidates: (articleId: number) =>
+    get<{ article_id: number; title: string; similarity: number; group_id: number | null; group_name: string | null }[]>(
+      `/backup/candidates/${articleId}`,
+    ),
+
   getStatuses: async (ids: number[]) => {
     const res = await fetch(`${BASE}/backup/status`, {
       method: 'POST',

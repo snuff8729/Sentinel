@@ -111,7 +111,7 @@ export function BackupDetailPage() {
           <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium border bg-emerald-100 text-emerald-700 border-emerald-300">
             다운로드 완료
           </span>
-        ) : links.some(l => l.type === 'download') && (
+        ) : (
           <Button size="sm" variant="outline" onClick={async () => {
             await backupApi.markDownloadComplete(article.id)
             backupApi.getDetail(article.id).then(d => {
@@ -201,7 +201,75 @@ export function BackupDetailPage() {
           onUpdate={refreshDetail}
         />
       )}
-      {activeTab === 'versions' && <VersionGroupPanel group={versionGroup} currentId={article.id} />}
+      {activeTab === 'versions' && (
+        <div className="space-y-4">
+          <VersionGroupPanel group={versionGroup} currentId={article.id} />
+          <CandidatesPanel
+            articleId={article.id}
+            currentGroupId={article.version_group_id ?? null}
+            onMerged={refreshDetail}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CandidatesPanel({ articleId, currentGroupId, onMerged }: {
+  articleId: number
+  currentGroupId: number | null
+  onMerged: () => void
+}) {
+  const [candidates, setCandidates] = useState<{ article_id: number; title: string; similarity: number; group_id: number | null; group_name: string | null }[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setLoading(true)
+    backupApi.getCandidates(articleId)
+      .then(setCandidates)
+      .catch(() => setCandidates([]))
+      .finally(() => setLoading(false))
+  }, [articleId])
+
+  const handleMerge = async (candidateId: number) => {
+    if (!currentGroupId) {
+      toast.error('현재 게시글의 버전 그룹이 없습니다.')
+      return
+    }
+    try {
+      await versionApi.addArticle(currentGroupId, candidateId)
+      toast.success('같은 그룹으로 묶었습니다.')
+      setCandidates(prev => prev.filter(c => c.article_id !== candidateId))
+      onMerged()
+    } catch (e) {
+      toast.error('묶기 실패')
+    }
+  }
+
+  if (loading) return null
+  if (candidates.length === 0) return null
+
+  return (
+    <div className="border rounded-md">
+      <div className="px-3 py-2 bg-amber-50 border-b text-sm font-medium flex items-center gap-2">
+        <span>💡</span>
+        <span>관련 게시글 후보</span>
+        <span className="text-xs text-muted-foreground">(유사도 50~80%, 수동 승인)</span>
+      </div>
+      {candidates.map(c => (
+        <div key={c.article_id} className="flex items-center gap-2 px-3 py-2 border-b last:border-b-0 text-sm hover:bg-muted/20">
+          <span className="text-xs font-mono text-muted-foreground w-10">{Math.round(c.similarity * 100)}%</span>
+          <Link to={`/backup/${c.article_id}`} className="flex-1 truncate hover:underline">
+            {c.title}
+          </Link>
+          {c.group_name && (
+            <span className="text-xs text-muted-foreground truncate max-w-[180px]">📦 {c.group_name}</span>
+          )}
+          <Button size="sm" variant="outline" onClick={() => handleMerge(c.article_id)}>
+            같은 그룹으로 묶기
+          </Button>
+        </div>
+      ))}
     </div>
   )
 }
@@ -449,24 +517,23 @@ function FileItem({ file, downloadLinks = [], onUpdate }: { file: ArticleFileIte
           </span>
         )}
         {file.note && !linkedLink && <span className="text-xs text-muted-foreground truncate max-w-[150px]">{file.note}</span>}
-        <ConfirmDialog
-          trigger={
-            <button
-              className="text-xs px-2 py-0.5 rounded border border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
-              onClick={e => e.stopPropagation()}
-            >
-              삭제
-            </button>
-          }
-          title="파일 삭제"
-          description={`"${file.filename}" 파일을 삭제할까요?`}
-          onConfirm={async () => {
-            await backupApi.deleteFreeFile(file.id)
-            onUpdate()
-            toast.success('파일이 삭제되었습니다.')
-          }}
-          confirmText="삭제"
-        />
+        <span onClick={e => e.stopPropagation()}>
+          <ConfirmDialog
+            trigger={
+              <button className="text-xs px-2 py-0.5 rounded border border-red-300 bg-red-50 text-red-600 hover:bg-red-100">
+                삭제
+              </button>
+            }
+            title="파일 삭제"
+            description={`"${file.filename}" 파일을 삭제할까요?`}
+            onConfirm={async () => {
+              await backupApi.deleteFreeFile(file.id)
+              onUpdate()
+              toast.success('파일이 삭제되었습니다.')
+            }}
+            confirmText="삭제"
+          />
+        </span>
       </div>
       {expanded && (
         <div className="px-3 pb-3 pt-1 bg-muted/10 space-y-2">

@@ -94,6 +94,7 @@ class BackupWorker:
         while True:
             req = await self._queue.get()
             self._pending = [r for r in self._pending if r.article_id != req.article_id]
+            self._event_bus.publish(Event(type="queue_updated", data=self._queue_snapshot()))
 
             if req.article_id in self._cancelled:
                 self._cancelled.discard(req.article_id)
