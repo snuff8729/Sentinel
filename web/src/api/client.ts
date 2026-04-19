@@ -164,6 +164,6 @@ export const backupApi = {
       body: JSON.stringify(ids),
     })
     if (!res.ok) throw new Error(`API error: ${res.status}`)
-    return res.json() as Promise<Record<string, string>>
+    return res.json() as Promise<Record<string, { status: string; group_name: string | null; group_id: number | null }>>
   },
 }
