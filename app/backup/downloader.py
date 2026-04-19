@@ -65,22 +65,42 @@ class ExternalDownloader:
 
         try:
             async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
+                # 페이지에서 캐릭터 이름 가져오기
+                char_name = char_id
+                try:
+                    from bs4 import BeautifulSoup
+                    page_resp = await client.get(f"https://realm.risuai.net/character/{char_id}", timeout=10)
+                    if page_resp.status_code == 200:
+                        soup = BeautifulSoup(page_resp.text, "lxml")
+                        title = soup.select_one("title")
+                        if title:
+                            # "RisuRealm - CharName" → "CharName"
+                            t = title.get_text(strip=True)
+                            if " - " in t:
+                                char_name = t.split(" - ", 1)[1].strip()
+                            elif t:
+                                char_name = t
+                except Exception:
+                    pass
+
                 resp = await client.get(download_url)
                 resp.raise_for_status()
 
                 # 파일명 결정
                 content_disp = resp.headers.get("content-disposition", "")
                 if "filename=" in content_disp:
-                    filename = re.search(r'filename="?([^";\s]+)"?', content_disp)
-                    filename = filename.group(1) if filename else f"{char_id}.charx"
+                    fn = re.search(r'filename="?([^";\s]+)"?', content_disp)
+                    filename = fn.group(1) if fn else f"{char_name}.charx"
                 else:
+                    # 안전한 파일명으로 변환
+                    safe_name = re.sub(r'[\\/:*?"<>|]', '_', char_name)
                     content_type = resp.headers.get("content-type", "")
                     if "charx" in content_type:
-                        filename = f"{char_id}.charx"
+                        filename = f"{safe_name}.charx"
                     elif "json" in content_type:
-                        filename = f"{char_id}.json"
+                        filename = f"{safe_name}.json"
                     else:
-                        filename = f"{char_id}.bin"
+                        filename = f"{safe_name}.bin"
 
                 # 저장
                 save_dir = self._data_dir / "articles" / str(article_id) / "downloads"
