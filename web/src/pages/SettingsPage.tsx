@@ -9,8 +9,89 @@ export function SettingsPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold">설정</h1>
+      <DataPathCard />
       <EmbeddingSettingsCard />
     </div>
+  )
+}
+
+function DataPathCard() {
+  const [path, setPath] = useState('')
+  const [info, setInfo] = useState<{ path: string; exists: boolean; total_size_mb: number; file_count: number } | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [saveResult, setSaveResult] = useState('')
+
+  useEffect(() => {
+    settingsApi.getDataPath().then(data => {
+      setPath(data.path)
+      setInfo(data)
+    })
+  }, [])
+
+  const handleSave = async () => {
+    setSaving(true)
+    setSaveResult('')
+    try {
+      const result = await settingsApi.updateDataPath(path)
+      if (result.error) {
+        setSaveResult(`오류: ${result.error}`)
+      } else {
+        setSaveResult('저장되었습니다. 서버를 재시작하면 적용됩니다.')
+        settingsApi.getDataPath().then(setInfo)
+      }
+    } catch {
+      setSaveResult('저장 실패')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">데이터 저장 경로</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          백업 HTML, 미디어, 다운로드 파일이 저장되는 경로입니다.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">경로</label>
+          <Input
+            value={path}
+            onChange={e => setPath(e.target.value)}
+            placeholder="예: /Volumes/External/sentinel-data, D:\sentinel-data"
+          />
+        </div>
+
+        {info && (
+          <div className="text-sm text-muted-foreground space-y-1">
+            <p>현재 경로: <span className="font-mono text-xs">{info.path}</span></p>
+            <p>파일 {info.file_count}개 · {info.total_size_mb}MB</p>
+            {!info.exists && <p className="text-yellow-600">⚠ 경로가 존재하지 않습니다.</p>}
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? '저장 중...' : '저장'}
+          </Button>
+        </div>
+
+        {saveResult && (
+          <div className={`text-sm p-3 rounded border ${
+            saveResult.includes('오류') || saveResult.includes('실패')
+              ? 'bg-red-50 border-red-200 text-red-700'
+              : 'bg-yellow-50 border-yellow-200 text-yellow-700'
+          }`}>
+            {saveResult}
+            {saveResult.includes('재시작') && (
+              <p className="mt-1 text-xs">⚠ 기존 데이터는 자동으로 이동되지 않습니다. 파일을 직접 옮겨주세요.</p>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 

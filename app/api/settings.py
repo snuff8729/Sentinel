@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 from sqlmodel import select
@@ -17,6 +19,38 @@ class EmbeddingSettings(BaseModel):
 
 def create_settings_router(engine) -> APIRouter:
     router = APIRouter()
+
+    # --- Data Path ---
+    @router.get("/data-path")
+    async def get_data_path():
+        import shutil
+        with get_session(engine) as session:
+            data_dir = get_setting(session, "data_dir") or "data"
+        path = Path(data_dir).resolve()
+        total_size = 0
+        file_count = 0
+        if path.exists():
+            for f in path.rglob("*"):
+                if f.is_file():
+                    total_size += f.stat().st_size
+                    file_count += 1
+        return {
+            "path": str(path),
+            "exists": path.exists(),
+            "total_size_mb": round(total_size / 1024 / 1024, 1),
+            "file_count": file_count,
+        }
+
+    @router.put("/data-path")
+    async def update_data_path(body: dict):
+        new_path = body.get("path", "").strip()
+        if not new_path:
+            return {"error": "경로가 비어있습니다."}
+        path = Path(new_path)
+        path.mkdir(parents=True, exist_ok=True)
+        with get_session(engine) as session:
+            set_setting(session, "data_dir", new_path)
+        return {"status": "saved", "path": str(path.resolve())}
 
     # --- Embedding ---
     @router.get("/embedding")

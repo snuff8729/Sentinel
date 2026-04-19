@@ -30,10 +30,17 @@ async def startup():
     engine = create_engine_and_tables()
     client = ArcaClient()
     event_bus = EventBus()
-    service = BackupService(engine=engine, client=client)
+
+    # 데이터 경로 로드
+    from app.db.engine import get_session
+    from app.db.repository import get_setting
+    with get_session(engine) as session:
+        data_dir = get_setting(session, "data_dir") or "data"
+
+    service = BackupService(engine=engine, client=client, data_dir=data_dir)
     link_analysis = LinkAnalysisService(engine=engine, arca_client=client)
     version_detector = VersionDetector(engine=engine)
-    downloader = ExternalDownloader(data_dir="data")
+    downloader = ExternalDownloader(data_dir=data_dir)
     worker = BackupWorker(service=service, event_bus=event_bus, link_analysis=link_analysis, version_detector=version_detector, downloader=downloader)
 
     # API routers
@@ -56,9 +63,9 @@ async def startup():
     asyncio.create_task(worker.run())
 
     # 백업 파일 정적 서빙 (이미지/비디오/오디오)
-    data_dir = Path(__file__).parent.parent / "data"
-    if data_dir.exists():
-        app.mount("/data", StaticFiles(directory=str(data_dir)), name="data")
+    data_path = Path(data_dir)
+    if data_path.exists():
+        app.mount("/data", StaticFiles(directory=str(data_path)), name="data")
 
     # Static file serving (React build)
     dist_dir = Path(__file__).parent.parent / "web" / "dist"

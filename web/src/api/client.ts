@@ -123,6 +123,9 @@ export const followApi = {
 }
 
 export const settingsApi = {
+  getDataPath: () => get<{ path: string; exists: boolean; total_size_mb: number; file_count: number }>('/settings/data-path'),
+  updateDataPath: (path: string) => put<{ status: string; path?: string; error?: string }>('/settings/data-path', { path }),
+
   getEmbedding: () => get<EmbeddingSettings>('/settings/embedding'),
   updateEmbedding: (settings: EmbeddingSettings) => put<{ status: string; model_changed?: boolean }>('/settings/embedding', settings),
   testEmbedding: (settings: EmbeddingSettings) => post<{ success: boolean; dimensions?: number; error?: string }>('/settings/embedding/test', settings),
