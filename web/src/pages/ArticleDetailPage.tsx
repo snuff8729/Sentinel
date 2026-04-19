@@ -27,6 +27,7 @@ export function ArticleDetailPage() {
   const [selectedGroup, setSelectedGroup] = useState<{ id: number; name: string } | 'new' | null>(null)
   const [backupQueued, setBackupQueued] = useState(false)
   const [backupStatus, setBackupStatus] = useState<string | null>(null)
+  const [versionGroup, setVersionGroup] = useState<{ id: number; name: string; articles: { id: number; title: string; version_label: string | null; backup_status: string; created_at: string | null }[] } | null>(null)
 
   useEffect(() => {
     if (!slug || !id) return
@@ -42,10 +43,17 @@ export function ArticleDetailPage() {
       setDetail(d)
       setCommentsHtml(c.html)
     }).finally(() => setLoading(false))
-    // 백업 상태 확인
+    // 백업 상태 + 버전 그룹 확인
     backupApi.getStatuses([articleId]).then(statuses => {
       setBackupStatus(statuses[String(articleId)] || null)
     })
+    backupApi.getDetail(articleId).then(detail => {
+      if (detail.article?.version_group_id) {
+        versionApi.getGroup(detail.article.version_group_id).then(setVersionGroup).catch(() => {})
+      } else {
+        setVersionGroup(null)
+      }
+    }).catch(() => setVersionGroup(null))
   }, [slug, id])
 
   const handleSearchVersions = async (keyword: string) => {
@@ -276,6 +284,47 @@ export function ArticleDetailPage() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* 버전 그룹 */}
+      {versionGroup && versionGroup.articles.length > 0 && (
+        <div className="border rounded-md">
+          <div className="px-3 py-2 bg-muted/30 border-b text-sm font-medium flex items-center gap-2">
+            <span>📦</span>
+            <span>{versionGroup.name}</span>
+            <span className="text-xs text-muted-foreground">({versionGroup.articles.length}개)</span>
+          </div>
+          {versionGroup.articles.map(a => {
+            const isCurrent = a.id === Number(id)
+            return (
+              <div
+                key={a.id}
+                className={`flex items-center gap-2 px-3 py-1.5 border-b last:border-b-0 text-sm ${isCurrent ? 'bg-blue-50' : 'hover:bg-muted/20'}`}
+              >
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                  a.backup_status === 'completed' ? 'bg-green-500' :
+                  a.backup_status === 'failed' ? 'bg-red-500' : 'bg-gray-300'
+                }`} />
+                {isCurrent ? (
+                  <span className="flex-1 truncate font-medium">{a.title}</span>
+                ) : (
+                  <Link to={`/article/${slug}/${a.id}`} className="flex-1 truncate hover:underline">
+                    {a.title}
+                  </Link>
+                )}
+                {a.version_label && (
+                  <span className="text-xs text-muted-foreground">{a.version_label}</span>
+                )}
+                {isCurrent && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-600 border border-blue-200">현재</span>
+                )}
+                {a.created_at && (
+                  <span className="text-xs text-muted-foreground">{new Date(a.created_at).toLocaleDateString('ko-KR')}</span>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
 

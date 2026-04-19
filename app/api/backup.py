@@ -100,6 +100,8 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
                     "backed_up_at": article.backed_up_at.isoformat() if article.backed_up_at else None,
                     "analysis_status": article.analysis_status,
                     "analysis_error": article.analysis_error,
+                    "version_group_id": article.version_group_id,
+                    "version_label": article.version_label,
                 },
                 "downloads": [
                     {
