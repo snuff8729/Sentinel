@@ -24,6 +24,8 @@ export function ArticleDetailPage() {
   const [showVersionPicker, setShowVersionPicker] = useState(false)
   const [versionSearch, setVersionSearch] = useState('')
   const [versionResults, setVersionResults] = useState<{ id: number; name: string; author: string | null; article_count: number }[]>([])
+  const [selectedGroup, setSelectedGroup] = useState<{ id: number; name: string } | 'new' | null>(null)
+  const [backupQueued, setBackupQueued] = useState(false)
 
   useEffect(() => {
     if (!slug || !id) return
@@ -95,77 +97,117 @@ export function ArticleDetailPage() {
       </div>
 
       {/* 액션 */}
-      <div className="flex gap-2 items-start">
-        <div className="relative flex-shrink-0">
-          <Button onClick={() => setShowVersionPicker(!showVersionPicker)}>
-            이 글 백업 ▾
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <Button onClick={() => { setShowVersionPicker(!showVersionPicker); setBackupQueued(false) }}>
+            이 글 백업
           </Button>
-          {showVersionPicker && (
-            <div className="absolute top-full left-0 mt-1 w-80 border rounded-md bg-background shadow-lg z-10">
-              <div className="p-2">
-                <Input
-                  value={versionSearch}
-                  onChange={e => handleSearchVersions(e.target.value)}
-                  placeholder="버전 그룹 검색 또는 새 그룹명 입력..."
-                  autoFocus
-                />
-              </div>
-              <div className="max-h-48 overflow-y-auto border-t">
-                {/* 새 그룹으로 백업 */}
-                {versionSearch.trim() && !versionResults.some(g => g.name === versionSearch.trim()) && (
-                  <button
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-muted border-b flex items-center gap-2"
-                    onClick={async () => {
-                      const group = await versionApi.createGroup(versionSearch.trim(), detail?.author)
-                      await backupApi.enqueue(slug!, Number(id))
-                      // 백업 후 그룹에 추가될 수 있도록 — 일단 큐에 넣고 그룹 연결
-                      setTimeout(async () => {
-                        try { await versionApi.addArticle(group.id, Number(id)) } catch {}
-                      }, 500)
-                      setShowVersionPicker(false)
-                      setVersionSearch('')
-                    }}
-                  >
-                    <span className="text-blue-500 text-xs font-medium">+ 새 그룹</span>
-                    <span className="font-medium">"{versionSearch.trim()}"</span>
-                    <span className="text-muted-foreground text-xs ml-auto">로 백업</span>
-                  </button>
-                )}
-                {/* 기존 그룹 목록 */}
-                {versionResults.map(g => (
-                  <button
-                    key={g.id}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-muted border-b last:border-b-0"
-                    onClick={async () => {
-                      await backupApi.enqueue(slug!, Number(id))
-                      setTimeout(async () => {
-                        try { await versionApi.addArticle(g.id, Number(id)) } catch {}
-                      }, 500)
-                      setShowVersionPicker(false)
-                      setVersionSearch('')
-                    }}
-                  >
-                    <span className="font-medium">{g.name}</span>
-                    {g.author && <span className="text-muted-foreground ml-2">by {g.author}</span>}
-                    <span className="text-muted-foreground ml-2">({g.article_count}개)</span>
-                  </button>
-                ))}
-                {/* 검색 없으면 기본: 새 그룹으로 백업 */}
-                {!versionSearch.trim() && (
-                  <button
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-muted text-muted-foreground"
-                    onClick={handleBackup}
-                  >
-                    새 그룹으로 백업 (제목으로 자동 생성)
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
+          <Button variant="outline" onClick={handleAnalyzeLinks} disabled={analyzing}>
+            {analyzing ? '분석 중...' : '링크 분석 (LLM)'}
+          </Button>
         </div>
-        <Button variant="outline" onClick={handleAnalyzeLinks} disabled={analyzing}>
-          {analyzing ? '분석 중...' : '링크 분석 (LLM)'}
-        </Button>
+
+        {/* 큐 추가 피드백 */}
+        {backupQueued && (
+          <div className="text-sm p-3 rounded border bg-green-50 border-green-200 text-green-700">
+            백업 큐에 추가되었습니다.
+          </div>
+        )}
+
+        {/* 버전 연결 + 백업 패널 */}
+        {showVersionPicker && (
+          <div className="border rounded-md p-4 space-y-3 bg-muted/10">
+            <p className="text-sm font-medium">버전 그룹 선택</p>
+            <Input
+              value={versionSearch}
+              onChange={e => handleSearchVersions(e.target.value)}
+              placeholder="그룹 검색 또는 새 그룹명 입력..."
+              autoFocus
+            />
+
+            <div className="max-h-48 overflow-y-auto border rounded">
+              {/* 기본: 새 그룹으로 (제목 자동) */}
+              <button
+                className={`w-full text-left px-3 py-2 text-sm border-b ${selectedGroup === 'new' && !versionSearch.trim() ? 'bg-blue-50' : 'hover:bg-muted'}`}
+                onClick={() => { setSelectedGroup('new'); setVersionSearch('') }}
+              >
+                <span className="text-muted-foreground">새 그룹으로 백업</span>
+                <span className="text-xs text-muted-foreground ml-1">(제목으로 자동 생성)</span>
+              </button>
+
+              {/* 검색어로 새 그룹 생성 */}
+              {versionSearch.trim() && !versionResults.some(g => g.name === versionSearch.trim()) && (
+                <button
+                  className={`w-full text-left px-3 py-2 text-sm border-b flex items-center gap-2 ${
+                    selectedGroup === 'new' && versionSearch.trim() ? 'bg-blue-50' : 'hover:bg-muted'
+                  }`}
+                  onClick={() => setSelectedGroup('new')}
+                >
+                  <span className="text-blue-500 text-xs font-medium">+ 새 그룹</span>
+                  <span className="font-medium">"{versionSearch.trim()}"</span>
+                </button>
+              )}
+
+              {/* 기존 그룹 */}
+              {versionResults.map(g => (
+                <button
+                  key={g.id}
+                  className={`w-full text-left px-3 py-2 text-sm border-b last:border-b-0 ${
+                    selectedGroup && selectedGroup !== 'new' && selectedGroup.id === g.id ? 'bg-blue-50' : 'hover:bg-muted'
+                  }`}
+                  onClick={() => setSelectedGroup({ id: g.id, name: g.name })}
+                >
+                  <span className="font-medium">{g.name}</span>
+                  {g.author && <span className="text-muted-foreground ml-2">by {g.author}</span>}
+                  <span className="text-muted-foreground ml-2">({g.article_count}개)</span>
+                </button>
+              ))}
+            </div>
+
+            {/* 선택 확인 + 백업 시작 */}
+            <div className="flex items-center gap-3 pt-1">
+              <div className="flex-1 text-sm text-muted-foreground">
+                {selectedGroup === 'new' && versionSearch.trim()
+                  ? `새 그룹 "${versionSearch.trim()}" 생성 후 백업`
+                  : selectedGroup === 'new'
+                  ? '새 그룹 (제목 자동) 으로 백업'
+                  : selectedGroup
+                  ? `"${selectedGroup.name}" 그룹에 추가 후 백업`
+                  : '그룹을 선택하세요'}
+              </div>
+              <Button
+                size="sm"
+                disabled={!selectedGroup}
+                onClick={async () => {
+                  if (!slug || !id) return
+                  const articleId = Number(id)
+
+                  if (selectedGroup === 'new' && versionSearch.trim()) {
+                    const group = await versionApi.createGroup(versionSearch.trim(), detail?.author)
+                    await backupApi.enqueue(slug, articleId)
+                    setTimeout(async () => { try { await versionApi.addArticle(group.id, articleId) } catch {} }, 500)
+                  } else if (selectedGroup === 'new') {
+                    await backupApi.enqueue(slug, articleId)
+                  } else if (selectedGroup) {
+                    await backupApi.enqueue(slug, articleId)
+                    setTimeout(async () => { try { await versionApi.addArticle(selectedGroup.id, articleId) } catch {} }, 500)
+                  }
+
+                  setShowVersionPicker(false)
+                  setSelectedGroup(null)
+                  setVersionSearch('')
+                  setBackupQueued(true)
+                  setTimeout(() => setBackupQueued(false), 5000)
+                }}
+              >
+                백업 시작
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => { setShowVersionPicker(false); setSelectedGroup(null) }}>
+                취소
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 분석 에러 */}
