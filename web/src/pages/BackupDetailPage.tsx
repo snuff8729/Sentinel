@@ -274,6 +274,20 @@ function LinkList({ links, articleSlug, articleId, onUpdate }: { links: ArticleL
   )
 }
 
+function getDomainLabel(url: string): string | null {
+  try {
+    const host = new URL(url).hostname
+    if (host.includes('proton')) return 'Proton'
+    if (host.includes('realm') || host.includes('risuai')) return 'Realm'
+    if (host.includes('chub')) return 'Chub'
+    if (host.includes('mega')) return 'MEGA'
+    if (host.includes('catbox')) return 'Catbox'
+    if (host.includes('drive.google')) return 'GDrive'
+    if (host.includes('arca.live')) return null
+    return host.split('.').slice(-2, -1)[0] || null
+  } catch { return null }
+}
+
 const DL_STATUS_STYLE: Record<string, { label: string; className: string }> = {
   completed: { label: '받음', className: 'bg-green-100 text-green-700 border-green-300' },
   failed: { label: '실패', className: 'bg-red-100 text-red-700 border-red-300' },
@@ -284,6 +298,7 @@ function LinkItem({ link, articleId, onUpdate }: { link: ArticleLinkItem; articl
   const style = LINK_TYPE_STYLE[link.type] ?? LINK_TYPE_STYLE.other
   const arcaMatch = link.url.match(/arca\.live\/b\/([^/]+)\/(\d+)/)
   const dlStatus = link.download_status ? DL_STATUS_STYLE[link.download_status] : null
+  const domainLabel = getDomainLabel(link.url)
   const fileInputId = `upload-${link.id}`
   const showUpload = link.type === 'download' && link.download_status !== 'completed'
 
@@ -304,6 +319,11 @@ function LinkItem({ link, articleId, onUpdate }: { link: ArticleLinkItem; articl
       <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${style.className}`}>
         {style.label}
       </span>
+      {domainLabel && (
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border bg-slate-100 text-slate-600 border-slate-300">
+          {domainLabel}
+        </span>
+      )}
       {dlStatus && (
         <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${dlStatus.className}`} title={link.download_error || ''}>
           {dlStatus.label}
