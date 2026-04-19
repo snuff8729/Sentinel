@@ -253,6 +253,24 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
 
         return {"status": "uploaded", "filename": filename, "size_kb": round(len(content) / 1024, 1)}
 
+    @router.put("/file/{file_id}")
+    async def update_free_file(file_id: int, body: dict = Body(...)):
+        """첨부 파일 alias/note 수정."""
+        from app.db.engine import get_session
+        from app.db.models import ArticleFile
+        _engine = engine or worker._service._engine
+        with get_session(_engine) as session:
+            af = session.get(ArticleFile, file_id)
+            if not af:
+                return {"error": "not found"}
+            if "filename" in body:
+                af.filename = body["filename"]
+            if "note" in body:
+                af.note = body["note"] or None
+            session.add(af)
+            session.commit()
+        return {"status": "updated"}
+
     @router.delete("/file/{file_id}")
     async def delete_free_file(file_id: int):
         """자유 업로드 파일 삭제."""

@@ -367,21 +367,7 @@ function ResourcesTab({ links, files, articleId, articleSlug, onUpdate }: {
         {files.length > 0 && (
           <div className="border rounded-md">
             {files.map(f => (
-              <div key={f.id} className="flex items-center gap-3 px-3 py-2 border-b last:border-b-0 text-sm hover:bg-muted/20">
-                <span className="font-mono text-xs truncate flex-1">{f.filename}</span>
-                <span className="text-xs text-muted-foreground">{f.size >= 1024 * 1024 ? `${(f.size / 1024 / 1024).toFixed(1)}MB` : `${(f.size / 1024).toFixed(1)}KB`}</span>
-                {f.note && <span className="text-xs text-muted-foreground">{f.note}</span>}
-                <button
-                  className="text-xs px-2 py-0.5 rounded border border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
-                  onClick={async () => {
-                    if (!confirm(`"${f.filename}" 파일을 삭제할까요?`)) return
-                    await backupApi.deleteFreeFile(f.id)
-                    onUpdate()
-                  }}
-                >
-                  삭제
-                </button>
-              </div>
+              <FileItem key={f.id} file={f} onUpdate={onUpdate} />
             ))}
           </div>
         )}
@@ -406,6 +392,88 @@ function ResourcesTab({ links, files, articleId, articleSlug, onUpdate }: {
           </label>
         </div>
       </div>
+    </div>
+  )
+}
+
+function FileItem({ file, onUpdate }: { file: ArticleFileItem; onUpdate: () => void }) {
+  const [expanded, setExpanded] = useState(false)
+  const [editAlias, setEditAlias] = useState(file.filename)
+  const [editNote, setEditNote] = useState(file.note || '')
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await backupApi.updateFreeFile(file.id, { filename: editAlias, note: editNote })
+      onUpdate()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const sizeLabel = file.size >= 1024 * 1024
+    ? `${(file.size / 1024 / 1024).toFixed(1)}MB`
+    : `${(file.size / 1024).toFixed(1)}KB`
+
+  return (
+    <div className="border-b last:border-b-0">
+      <div
+        className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-muted/20 cursor-pointer"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <span className="text-muted-foreground text-xs">{expanded ? '▼' : '▶'}</span>
+        <span className="font-mono text-xs truncate flex-1">{file.filename}</span>
+        <span className="text-xs text-muted-foreground">{sizeLabel}</span>
+        {file.note && <span className="text-xs text-muted-foreground truncate max-w-[150px]">{file.note}</span>}
+        <button
+          className="text-xs px-2 py-0.5 rounded border border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
+          onClick={async (e) => {
+            e.stopPropagation()
+            if (!confirm(`"${file.filename}" 파일을 삭제할까요?`)) return
+            await backupApi.deleteFreeFile(file.id)
+            onUpdate()
+          }}
+        >
+          삭제
+        </button>
+      </div>
+      {expanded && (
+        <div className="px-3 pb-3 pt-1 bg-muted/10 space-y-2">
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">파일명 (별칭)</label>
+            <input
+              className="w-full text-sm border rounded px-2 py-1"
+              value={editAlias}
+              onChange={e => setEditAlias(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">노트</label>
+            <textarea
+              className="w-full text-sm border rounded px-2 py-1 min-h-[60px]"
+              value={editNote}
+              onChange={e => setEditNote(e.target.value)}
+              placeholder="메모를 입력하세요..."
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              className="text-xs px-3 py-1 rounded border border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100"
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? '저장 중...' : '저장'}
+            </button>
+            <button
+              className="text-xs px-3 py-1 rounded border text-muted-foreground hover:bg-muted"
+              onClick={() => { setExpanded(false); setEditAlias(file.filename); setEditNote(file.note || '') }}
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

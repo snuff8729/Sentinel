@@ -169,6 +169,9 @@ export const backupApi = {
     return res.json() as Promise<{ status: string; filename: string; size_kb: number }>
   },
 
+  updateFreeFile: (fileId: number, data: { filename?: string; note?: string }) =>
+    put<{ status: string }>(`/backup/file/${fileId}`, data),
+
   deleteFreeFile: (fileId: number) =>
     del<{ status: string }>(`/backup/file/${fileId}`),
 
