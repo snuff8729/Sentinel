@@ -147,6 +147,19 @@ export interface VersionGroupDetail {
   articles: VersionGroupArticle[]
 }
 
+export interface UpdateCandidate {
+  article_id: number
+  title: string
+  author: string
+  matched_id: number
+  matched_title: string
+  similarity: number
+  is_update: boolean | null
+  reason: string
+  group_id: number | null
+  group_name: string | null
+}
+
 export interface AnalyzedLink {
   url: string
   type: 'download' | 'reference' | 'other'

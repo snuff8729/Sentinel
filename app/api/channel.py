@@ -78,6 +78,15 @@ def create_channel_router(client, engine=None) -> APIRouter:
         comments_html = parse_comments_html(resp.text)
         return {"html": comments_html}
 
+    @router.post("/{slug}/check-updates")
+    async def check_updates(slug: str, articles: list[dict]):
+        from app.llm.update_detector import UpdateDetector
+        if not engine:
+            return {"updates": []}
+        detector = UpdateDetector(engine=engine)
+        updates = await detector.check_updates(articles)
+        return {"updates": updates}
+
     @article_router.post("/{slug}/{article_id}/analyze-links")
     async def analyze_article_links(slug: str, article_id: int):
         from app.db.engine import get_session

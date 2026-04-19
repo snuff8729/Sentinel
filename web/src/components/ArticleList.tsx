@@ -13,6 +13,7 @@ interface Props {
   onSearchAuthor?: (author: string) => void
   followedUsers?: Set<string>
   onToggleFollow?: (username: string) => void
+  updateCandidates?: Record<number, { matched_title: string; group_name: string | null; reason: string }>
 }
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
@@ -26,6 +27,7 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
 export function ArticleList({
   slug, articles, selected, onToggle, onToggleAll,
   backupStatuses = {}, onSearchAuthor, followedUsers = new Set(), onToggleFollow,
+  updateCandidates = {},
 }: Props) {
   const allSelected = articles.length > 0 && articles.every(a => selected.has(a.id))
 
@@ -41,6 +43,7 @@ export function ArticleList({
         const status = backupStatuses[String(article.id)]
         const badgeInfo = status ? STATUS_BADGE[status] : null
         const isFollowed = followedUsers.has(article.author)
+        const update = updateCandidates[article.id]
 
         return (
           <div
@@ -64,6 +67,14 @@ export function ArticleList({
                 {badgeInfo && (
                   <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle ${badgeInfo.className}`}>
                     {badgeInfo.label}
+                  </span>
+                )}
+                {update && (
+                  <span
+                    className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border mr-1.5 align-middle bg-orange-100 text-orange-700 border-orange-300"
+                    title={`${update.reason} — 기존: ${update.matched_title}`}
+                  >
+                    🔄 {update.group_name || '업데이트'}
                   </span>
                 )}
                 {article.category && (

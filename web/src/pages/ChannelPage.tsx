@@ -29,6 +29,7 @@ export function ChannelPage() {
   const [loading, setLoading] = useState(false)
   const [backupStatuses, setBackupStatuses] = useState<Record<string, string>>({})
   const [followedUsers, setFollowedUsers] = useState<Set<string>>(new Set())
+  const [updateCandidates, setUpdateCandidates] = useState<Record<number, { matched_title: string; group_name: string | null; reason: string }>>({})
 
   const SEARCH_TARGETS: Record<string, string> = {
     '전체': 'all',
@@ -97,6 +98,16 @@ export function ChannelPage() {
         } else {
           setBackupStatuses({})
         }
+        // 백그라운드: 업데이트 감지
+        setUpdateCandidates({})
+        const articlesForCheck = result.articles.map(a => ({ id: a.id, title: a.title, author: a.author }))
+        channelApi.checkUpdates(slug, articlesForCheck).then(res => {
+          const map: Record<number, { matched_title: string; group_name: string | null; reason: string }> = {}
+          for (const u of res.updates) {
+            map[u.article_id] = { matched_title: u.matched_title, group_name: u.group_name, reason: u.reason }
+          }
+          setUpdateCandidates(map)
+        }).catch(() => {})
       })
       .finally(() => setLoading(false))
   }, [slug, category, mode, page, keyword, target])
@@ -264,6 +275,7 @@ export function ChannelPage() {
             onSearchAuthor={handleSearchAuthor}
             followedUsers={followedUsers}
             onToggleFollow={handleToggleFollow}
+            updateCandidates={updateCandidates}
           />
           <div className="flex justify-center gap-1">
             {Array.from({ length: data.total_pages }, (_, i) => i + 1).map(p => (

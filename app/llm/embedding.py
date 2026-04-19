@@ -35,6 +35,31 @@ class EmbeddingClient:
             data = resp.json()
             return data["data"][0]["embedding"]
 
+    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
+        """여러 텍스트를 한 번의 API 호출로 임베딩."""
+        if not texts:
+            return []
+        headers: dict[str, str] = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        payload = {
+            "model": self.model,
+            "input": texts,
+        }
+
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(
+                f"{self.base_url}/embeddings",
+                json=payload,
+                headers=headers,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            # 결과를 index 순서대로 정렬
+            sorted_data = sorted(data["data"], key=lambda x: x["index"])
+            return [d["embedding"] for d in sorted_data]
+
     async def test_connection(self) -> dict:
         try:
             vec = await self.embed("test")

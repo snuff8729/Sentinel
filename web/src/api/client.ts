@@ -9,6 +9,7 @@ import type {
   EmbeddingSettings,
   LLMSettings,
   QueueStatus,
+  UpdateCandidate,
   VersionGroupDetail,
 } from './types'
 
@@ -70,6 +71,9 @@ export const channelApi = {
     const qs = searchParams.toString()
     return get<ArticleList>(`/channel/${slug}/articles${qs ? `?${qs}` : ''}`)
   },
+
+  checkUpdates: (slug: string, articles: { id: number; title: string; author: string }[]) =>
+    post<{ updates: UpdateCandidate[] }>(`/channel/${slug}/check-updates`, articles),
 
   search: (slug: string, keyword: string, target = 'all', page = 1, params?: {
     category?: string
