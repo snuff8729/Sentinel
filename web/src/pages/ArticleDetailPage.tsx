@@ -49,12 +49,6 @@ export function ArticleDetailPage() {
     setVersionResults(results)
   }
 
-  const handleBackup = async () => {
-    if (!slug || !id) return
-    await backupApi.enqueue(slug, Number(id))
-    alert('백업 큐에 추가했습니다.')
-  }
-
   const handleAnalyzeLinks = async () => {
     if (!slug || !id) return
     setAnalyzing(true)
