@@ -51,7 +51,16 @@ export function BackupDetailPage() {
   if (loading) return <div className="text-center py-8 text-muted-foreground">로딩 중...</div>
   if (!detail) return <div className="text-center py-8">백업 데이터를 찾을 수 없습니다.</div>
 
-  const { article, downloads, links = [] } = detail
+  const { article, downloads, links = [], files = [] } = detail
+
+  const refreshDetail = () => {
+    backupApi.getDetail(Number(id)).then(d => {
+      setDetail(d)
+      if (d.article?.version_group_id) {
+        versionApi.getGroup(d.article.version_group_id).then(setVersionGroup).catch(() => {})
+      }
+    })
+  }
   const badgeInfo = STATUS_BADGE[article.backup_status] ?? { label: article.backup_status, className: 'bg-gray-100 text-gray-500 border-gray-300' }
   const failedCount = downloads.filter(d => d.status === 'failed').length
   const warningCount = downloads.filter(d => d.warning).length
@@ -144,7 +153,7 @@ export function BackupDetailPage() {
           }`}
           onClick={() => setActiveTab('links')}
         >
-          링크 분석 ({links.length})
+          자료 ({links.length + files.length})
           {article.analysis_status === 'failed' && <span className="text-red-500 ml-1">실패</span>}
           {article.analysis_status === 'pending' && <span className="text-yellow-500 ml-1">분석중</span>}
         </button>
@@ -172,14 +181,57 @@ export function BackupDetailPage() {
         </div>
       )}
       {activeTab === 'files' && <FileList downloads={downloads} />}
-      {activeTab === 'links' && <LinkList links={links} articleSlug={article.channel_slug} articleId={article.id} onUpdate={() => {
-        backupApi.getDetail(article.id).then(d => {
-          setDetail(d)
-          if (d.article?.version_group_id) {
-            versionApi.getGroup(d.article.version_group_id).then(setVersionGroup).catch(() => {})
-          }
-        })
-      }} />}
+      {activeTab === 'links' && (
+        <div className="space-y-6">
+          <LinkList links={links} articleSlug={article.channel_slug} articleId={article.id} onUpdate={refreshDetail} />
+
+          {/* 첨부 파일 */}
+          <div className="space-y-2">
+            <p className="text-sm font-medium">첨부 파일 ({files.length})</p>
+            {files.length > 0 && (
+              <div className="border rounded-md">
+                {files.map(f => (
+                  <div key={f.id} className="flex items-center gap-3 px-3 py-2 border-b last:border-b-0 text-sm hover:bg-muted/20">
+                    <span className="font-mono text-xs truncate flex-1">{f.filename}</span>
+                    <span className="text-xs text-muted-foreground">{(f.size / 1024).toFixed(1)}KB</span>
+                    {f.note && <span className="text-xs text-muted-foreground">{f.note}</span>}
+                    <button
+                      className="text-xs px-2 py-0.5 rounded border border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
+                      onClick={async () => {
+                        if (!confirm(`"${f.filename}" 파일을 삭제할까요?`)) return
+                        await backupApi.deleteFreeFile(f.id)
+                        refreshDetail()
+                      }}
+                    >
+                      삭제
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div>
+              <input
+                type="file"
+                id="free-file-upload"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  await backupApi.uploadFreeFile(article.id, file)
+                  refreshDetail()
+                  e.target.value = ''
+                }}
+              />
+              <label
+                htmlFor="free-file-upload"
+                className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded border border-dashed border-gray-300 text-muted-foreground hover:bg-muted cursor-pointer"
+              >
+                + 파일 추가
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
       {activeTab === 'versions' && <VersionGroupPanel group={versionGroup} currentId={article.id} />}
     </div>
   )

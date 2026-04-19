@@ -102,10 +102,19 @@ export interface ArticleLinkItem {
   download_error?: string | null
 }
 
+export interface ArticleFileItem {
+  id: number
+  filename: string
+  local_path: string
+  size: number
+  note: string | null
+}
+
 export interface BackupDetail {
   article: BackupHistoryItem
   downloads: DownloadItem[]
   links?: ArticleLinkItem[]
+  files?: ArticleFileItem[]
   versions?: VersionRelation[]
 }
 

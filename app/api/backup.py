@@ -80,7 +80,7 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
     async def get_backup_detail(article_id: int):
         from app.db.engine import get_session
         from app.db.repository import get_article, get_downloads_for_article, get_links_for_article
-        from app.db.models import Article, ArticleVersion
+        from app.db.models import Article, ArticleFile, ArticleVersion
         _engine = engine or worker._service._engine
         with get_session(_engine) as session:
             article = get_article(session, article_id)
@@ -88,6 +88,10 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
                 return {"error": "not found"}
             downloads = get_downloads_for_article(session, article_id)
             links = get_links_for_article(session, article_id)
+
+            # 자유 업로드 파일
+            files_stmt = select(ArticleFile).where(ArticleFile.article_id == article_id)
+            files = session.exec(files_stmt).all()
 
             # 버전 관계
             from sqlmodel import select
@@ -138,6 +142,16 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
                         "source_article_id": l.source_article_id,
                     }
                     for l in links
+                ],
+                "files": [
+                    {
+                        "id": f.id,
+                        "filename": f.filename,
+                        "local_path": f.local_path,
+                        "size": f.size,
+                        "note": f.note,
+                    }
+                    for f in files
                 ],
                 "versions": [
                     {
@@ -207,6 +221,59 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
             "local_path": local_path,
             "size_kb": round(size_kb, 1),
         }
+
+    @router.post("/upload-free/{article_id}")
+    async def upload_free_file(article_id: int, file: UploadFile = File(...), note: str = Form("")):
+        """링크와 관계없는 자유 파일 업로드."""
+        from app.db.engine import get_session
+        from app.db.models import ArticleFile
+
+        data_dir = Path(worker._service._data_dir) if worker else Path("data")
+        save_dir = data_dir / "articles" / str(article_id) / "downloads"
+        save_dir.mkdir(parents=True, exist_ok=True)
+
+        filename = file.filename or "uploaded_file"
+        save_path = save_dir / filename
+        content = await file.read()
+        save_path.write_bytes(content)
+
+        local_path = f"articles/{article_id}/downloads/{filename}"
+
+        _engine = engine or worker._service._engine
+        with get_session(_engine) as session:
+            af = ArticleFile(
+                article_id=article_id,
+                filename=filename,
+                local_path=local_path,
+                size=len(content),
+                note=note or None,
+            )
+            session.add(af)
+            session.commit()
+
+        return {"status": "uploaded", "filename": filename, "size_kb": round(len(content) / 1024, 1)}
+
+    @router.delete("/file/{file_id}")
+    async def delete_free_file(file_id: int):
+        """자유 업로드 파일 삭제."""
+        from app.db.engine import get_session
+        from app.db.models import ArticleFile
+
+        _engine = engine or worker._service._engine
+        data_dir = Path(worker._service._data_dir) if worker else Path("data")
+
+        with get_session(_engine) as session:
+            af = session.get(ArticleFile, file_id)
+            if not af:
+                return {"error": "not found"}
+            # 파일 삭제
+            file_path = data_dir / af.local_path
+            if file_path.exists():
+                file_path.unlink()
+            session.delete(af)
+            session.commit()
+
+        return {"status": "deleted"}
 
     @router.post("/complete-download/{article_id}")
     async def mark_download_complete(article_id: int):

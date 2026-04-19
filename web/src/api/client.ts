@@ -157,6 +157,21 @@ export const backupApi = {
   getHistory: (status?: string) =>
     get<BackupHistoryItem[]>(`/backup/history${status ? `?status=${status}` : ''}`),
 
+  uploadFreeFile: async (articleId: number, file: File, note?: string) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    if (note) formData.append('note', note)
+    const res = await fetch(`${BASE}/backup/upload-free/${articleId}`, {
+      method: 'POST',
+      body: formData,
+    })
+    if (!res.ok) throw new Error(`API error: ${res.status}`)
+    return res.json() as Promise<{ status: string; filename: string; size_kb: number }>
+  },
+
+  deleteFreeFile: (fileId: number) =>
+    del<{ status: string }>(`/backup/file/${fileId}`),
+
   markDownloadComplete: (articleId: number) =>
     post<{ status: string }>(`/backup/complete-download/${articleId}`),
 

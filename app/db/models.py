@@ -70,6 +70,15 @@ class UpdateCheckCache(SQLModel, table=True):
     checked_at: datetime | None = None
 
 
+class ArticleFile(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    article_id: int = Field(foreign_key="article.id")
+    filename: str
+    local_path: str
+    size: int = 0
+    note: str | None = None  # 사용자 메모
+
+
 class Download(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     article_id: int = Field(foreign_key="article.id")
