@@ -125,6 +125,16 @@ export function BackupDetailPage() {
         <Link to={`/article/${article.channel_slug}/${article.id}`}>
           <Button size="sm" variant="outline">원본 보기 (Sentinel)</Button>
         </Link>
+        <Button size="sm" variant="outline" onClick={async () => {
+          try {
+            const res = await backupApi.openFolder(article.id)
+            if (res.error) toast.error('폴더를 열 수 없습니다')
+          } catch {
+            toast.error('폴더를 열 수 없습니다')
+          }
+        }}>
+          백업 폴더 열기
+        </Button>
         {article.url && (
           <a href={article.url} target="_blank" rel="noopener noreferrer">
             <Button size="sm" variant="ghost">arca.live에서 열기 ↗</Button>
