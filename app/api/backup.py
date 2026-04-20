@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import subprocess
+import sys
 
 from pathlib import Path
 
@@ -502,5 +504,43 @@ img.twemoji { display: inline; height: 1.2em; width: auto; vertical-align: middl
         _engine = engine or worker._service._engine
         detector = VersionDetector(_engine)
         return await detector.find_candidates(article_id, min_similarity, max_similarity, limit)
+
+    @router.post("/open-folder/{article_id}")
+    async def open_backup_folder(article_id: int):
+        """article의 백업 폴더를 OS 파일 탐색기로 연다.
+
+        - data/articles/{id}/downloads/ 가 있으면 그 폴더를
+        - 없으면 data/articles/{id}/ 를 연다
+        - 둘 다 없으면 에러
+        """
+        data_dir = Path(worker._service._data_dir) if worker else Path("data")
+        data_root = data_dir.resolve()
+
+        article_dir = (data_dir / "articles" / str(article_id)).resolve()
+        downloads_dir = article_dir / "downloads"
+
+        # path traversal 방지: article_dir 가 data_root 하위인지 검증
+        try:
+            article_dir.relative_to(data_root)
+        except ValueError:
+            return {"error": "invalid path"}
+
+        target = downloads_dir if downloads_dir.exists() else article_dir
+        if not target.exists():
+            return {"error": "folder not found"}
+
+        try:
+            if sys.platform == "win32":
+                subprocess.Popen(["explorer", str(target)])
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", str(target)])
+            else:
+                subprocess.Popen(["xdg-open", str(target)])
+        except FileNotFoundError:
+            return {"error": "file explorer not available"}
+        except Exception as e:
+            return {"error": f"failed to open: {e}"}
+
+        return {"status": "opened", "path": str(target)}
 
     return router
