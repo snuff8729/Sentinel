@@ -14,3 +14,6 @@ web/node_modules/
 web/dist/
 .DS_Store
 runtime/
+
+# Personal planning/spec docs (not tracked)
+docs/superpowers/
