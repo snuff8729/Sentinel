@@ -517,15 +517,16 @@ img.twemoji { display: inline; height: 1.2em; width: auto; vertical-align: middl
         data_root = data_dir.resolve()
 
         article_dir = (data_dir / "articles" / str(article_id)).resolve()
-        downloads_dir = article_dir / "downloads"
+        downloads_dir = (article_dir / "downloads").resolve() if (article_dir / "downloads").exists() else None
 
-        # path traversal 방지: article_dir 가 data_root 하위인지 검증
+        target = downloads_dir if downloads_dir else article_dir
+
+        # path traversal 방지: target이 data_root 하위인지 검증
         try:
-            article_dir.relative_to(data_root)
+            target.relative_to(data_root)
         except ValueError:
             return {"error": "invalid path"}
 
-        target = downloads_dir if downloads_dir.exists() else article_dir
         if not target.exists():
             return {"error": "folder not found"}
 
