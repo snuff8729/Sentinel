@@ -201,6 +201,9 @@ export const backupApi = {
   markDownloadComplete: (articleId: number) =>
     post<{ status: string }>(`/backup/complete-download/${articleId}`),
 
+  openFolder: (articleId: number) =>
+    post<{ status?: string; path?: string; error?: string }>(`/backup/open-folder/${articleId}`),
+
   getCandidates: (articleId: number) =>
     get<{ article_id: number; title: string; similarity: number; group_id: number | null; group_name: string | null }[]>(
       `/backup/candidates/${articleId}`,
