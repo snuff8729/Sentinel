@@ -360,6 +360,55 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
             meta["received"] = index + 1
             return {"received": meta["received"], "total": meta["total_chunks"]}
 
+    @router.post("/upload-free/complete/{upload_id}")
+    async def upload_free_complete(upload_id: str):
+        from app.db.engine import get_session
+        from app.db.models import ArticleFile
+
+        _validate_upload_id(upload_id)
+
+        async with _uploads_lock:
+            meta = _uploads.pop(upload_id, None)
+        if not meta:
+            raise HTTPException(404, "upload not found")
+
+        temp_path = Path(meta["temp_path"])
+        if meta["received"] != meta["total_chunks"]:
+            temp_path.unlink(missing_ok=True)
+            raise HTTPException(400, "upload not complete")
+
+        actual_size = temp_path.stat().st_size if temp_path.exists() else 0
+        if actual_size != meta["total_size"]:
+            temp_path.unlink(missing_ok=True)
+            raise HTTPException(400, f"size mismatch (expected {meta['total_size']}, got {actual_size})")
+
+        data_dir = Path(worker._service._data_dir) if worker else Path("data")
+        save_dir = data_dir / "articles" / str(meta["article_id"]) / "downloads"
+        save_dir.mkdir(parents=True, exist_ok=True)
+        final_path = save_dir / meta["filename"]
+
+        data_root = data_dir.resolve()
+        if not str(final_path.resolve()).startswith(str(data_root)):
+            temp_path.unlink(missing_ok=True)
+            raise HTTPException(400, "invalid path")
+
+        await asyncio.to_thread(temp_path.replace, final_path)
+
+        local_path = f"articles/{meta['article_id']}/downloads/{meta['filename']}"
+        _engine = engine or worker._service._engine
+        with get_session(_engine) as session:
+            af = ArticleFile(
+                article_id=meta["article_id"],
+                filename=meta["filename"],
+                local_path=local_path,
+                size=meta["total_size"],
+                note=meta["note"] or None,
+            )
+            session.add(af)
+            session.commit()
+
+        return {"filename": meta["filename"], "size_kb": round(meta["total_size"] / 1024, 1)}
+
     @router.post("/upload-free/{article_id}")
     async def upload_free_file(article_id: int, file: UploadFile = File(...), note: str = Form("")):
         """링크와 관계없는 자유 파일 업로드."""

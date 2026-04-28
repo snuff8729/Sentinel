@@ -148,3 +148,75 @@ def test_non_final_chunk_must_be_exact_size(setup):
         files={"chunk": ("c0", b"x" * 1024, "application/octet-stream")},
     )
     assert resp.status_code == 400
+
+
+from app.db.models import ArticleFile
+
+
+def _send_chunk(client, upload_id, index, data):
+    resp = client.post(
+        f"/api/backup/upload-free/chunk/{upload_id}?index={index}",
+        files={"chunk": (f"c{index}", data, "application/octet-stream")},
+    )
+    assert resp.status_code == 200, resp.text
+
+
+def test_complete_moves_file_and_creates_db_row(setup):
+    client, tmp_path, engine = setup
+    payload = b"final content"
+    upload_id = _init_upload(client, filename="report.txt", total_size=len(payload), total_chunks=1, note="memo")
+    _send_chunk(client, upload_id, 0, payload)
+
+    resp = client.post(f"/api/backup/upload-free/complete/{upload_id}")
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["filename"] == "report.txt"
+
+    final_path = tmp_path / "articles" / "1" / "downloads" / "report.txt"
+    assert final_path.read_bytes() == payload
+    assert not (tmp_path / ".uploads" / f"{upload_id}.part").exists()
+
+    with Session(engine) as session:
+        rows = session.query(ArticleFile).filter_by(article_id=1).all()
+        assert len(rows) == 1
+        assert rows[0].filename == "report.txt"
+        assert rows[0].size == len(payload)
+        assert rows[0].note == "memo"
+
+
+def test_complete_before_all_chunks_rejected(setup):
+    client, tmp_path, _ = setup
+    upload_id = _init_upload(client, total_size=20 * 1024 * 1024, total_chunks=2)
+    _send_chunk(client, upload_id, 0, b"x" * (10 * 1024 * 1024))
+
+    resp = client.post(f"/api/backup/upload-free/complete/{upload_id}")
+    assert resp.status_code == 400
+    assert not (tmp_path / ".uploads" / f"{upload_id}.part").exists()  # cleaned up
+
+
+def test_complete_size_mismatch_rejected(setup, monkeypatch):
+    client, tmp_path, _ = setup
+    payload = b"abc"
+    upload_id = _init_upload(client, total_size=len(payload), total_chunks=1)
+    _send_chunk(client, upload_id, 0, payload)
+
+    # tamper temp file to wrong size
+    temp = tmp_path / ".uploads" / f"{upload_id}.part"
+    temp.write_bytes(b"abcdef")
+
+    resp = client.post(f"/api/backup/upload-free/complete/{upload_id}")
+    assert resp.status_code == 400
+
+
+def test_complete_filename_traversal_blocked(setup):
+    client, tmp_path, _ = setup
+    payload = b"x"
+    # filename with traversal attempt — _normalize_filename strips path components
+    upload_id = _init_upload(client, filename="../../etc/passwd", total_size=1, total_chunks=1)
+    _send_chunk(client, upload_id, 0, payload)
+
+    resp = client.post(f"/api/backup/upload-free/complete/{upload_id}")
+    # 정규화로 "passwd" 가 되어 articles/1/downloads/passwd 로 저장됨 (data_dir 내부)
+    assert resp.status_code == 200
+    final = tmp_path / "articles" / "1" / "downloads" / "passwd"
+    assert final.exists()
