@@ -54,6 +54,15 @@ async def startup():
     downloader = ExternalDownloader(data_dir=data_dir)
     worker = BackupWorker(service=service, event_bus=event_bus, link_analysis=link_analysis, version_detector=version_detector, downloader=downloader)
 
+    # 좀비 청크 파일 정리 (재개 미지원)
+    uploads_dir = Path(data_dir) / ".uploads"
+    if uploads_dir.exists():
+        for part in uploads_dir.glob("*.part"):
+            try:
+                part.unlink()
+            except OSError:
+                pass
+
     # API routers
     channel_router = create_channel_router(client, engine)
     app.include_router(channel_router, prefix="/api/channel")

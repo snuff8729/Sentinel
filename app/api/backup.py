@@ -10,7 +10,7 @@ import uuid
 
 from pathlib import Path
 
-from fastapi import APIRouter, Body, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, Body, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse
 from starlette.responses import StreamingResponse
 
@@ -417,37 +417,6 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
         if meta:
             Path(meta["temp_path"]).unlink(missing_ok=True)
         return {"aborted": True}
-
-    @router.post("/upload-free/{article_id}")
-    async def upload_free_file(article_id: int, file: UploadFile = File(...), note: str = Form("")):
-        """링크와 관계없는 자유 파일 업로드."""
-        from app.db.engine import get_session
-        from app.db.models import ArticleFile
-
-        data_dir = Path(worker._service._data_dir) if worker else Path("data")
-        save_dir = data_dir / "articles" / str(article_id) / "downloads"
-        save_dir.mkdir(parents=True, exist_ok=True)
-
-        filename = file.filename or "uploaded_file"
-        save_path = save_dir / filename
-        content = await file.read()
-        save_path.write_bytes(content)
-
-        local_path = f"articles/{article_id}/downloads/{filename}"
-
-        _engine = engine or worker._service._engine
-        with get_session(_engine) as session:
-            af = ArticleFile(
-                article_id=article_id,
-                filename=filename,
-                local_path=local_path,
-                size=len(content),
-                note=note or None,
-            )
-            session.add(af)
-            session.commit()
-
-        return {"status": "uploaded", "filename": filename, "size_kb": round(len(content) / 1024, 1)}
 
     @router.put("/file/{file_id}")
     async def update_free_file(file_id: int, body: dict = Body(...)):
