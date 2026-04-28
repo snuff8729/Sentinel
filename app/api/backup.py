@@ -38,6 +38,11 @@ def _validate_upload_id(upload_id: str) -> None:
         raise HTTPException(status_code=400, detail="invalid upload_id")
 
 
+def _append_bytes(path: Path, data: bytes) -> None:
+    with open(path, "ab") as f:
+        f.write(data)
+
+
 def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None) -> APIRouter:
     router = APIRouter()
 
@@ -329,6 +334,31 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
             }
 
         return {"upload_id": upload_id}
+
+    @router.post("/upload-free/chunk/{upload_id}")
+    async def upload_free_chunk(upload_id: str, index: int, chunk: UploadFile = File(...)):
+        _validate_upload_id(upload_id)
+
+        async with _uploads_lock:
+            meta = _uploads.get(upload_id)
+            if not meta:
+                raise HTTPException(404, "upload not found")
+            if index != meta["received"]:
+                raise HTTPException(400, f"out of order chunk (expected {meta['received']}, got {index})")
+            if index >= meta["total_chunks"]:
+                raise HTTPException(400, "chunk index out of range")
+
+            data = await chunk.read()
+            is_last = (index == meta["total_chunks"] - 1)
+            if not is_last and len(data) != CHUNK_SIZE:
+                raise HTTPException(400, f"non-final chunk must be exactly {CHUNK_SIZE} bytes")
+            if is_last and len(data) > CHUNK_SIZE:
+                raise HTTPException(400, "final chunk too large")
+
+            temp_path = Path(meta["temp_path"])
+            await asyncio.to_thread(_append_bytes, temp_path, data)
+            meta["received"] = index + 1
+            return {"received": meta["received"], "total": meta["total_chunks"]}
 
     @router.post("/upload-free/{article_id}")
     async def upload_free_file(article_id: int, file: UploadFile = File(...), note: str = Form("")):

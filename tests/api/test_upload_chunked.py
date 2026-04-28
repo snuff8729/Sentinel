@@ -80,3 +80,71 @@ def test_init_rejects_oversized_file(setup):
         "total_chunks": 1126,
     })
     assert resp.status_code == 413
+
+
+def _init_upload(client, *, article_id=1, filename="x.bin", total_size, total_chunks, note=None):
+    resp = client.post("/api/backup/upload-free/init", json={
+        "article_id": article_id,
+        "filename": filename,
+        "total_size": total_size,
+        "total_chunks": total_chunks,
+        "note": note,
+    })
+    assert resp.status_code == 200, resp.text
+    return resp.json()["upload_id"]
+
+
+def test_chunk_appends_to_temp_file(setup):
+    client, tmp_path, _ = setup
+    payload = b"hello world"
+    upload_id = _init_upload(client, total_size=len(payload), total_chunks=1)
+
+    resp = client.post(
+        f"/api/backup/upload-free/chunk/{upload_id}?index=0",
+        files={"chunk": ("c0", payload, "application/octet-stream")},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data == {"received": 1, "total": 1}
+    assert (tmp_path / ".uploads" / f"{upload_id}.part").read_bytes() == payload
+
+
+def test_chunk_out_of_order_rejected(setup):
+    client, _, _ = setup
+    upload_id = _init_upload(client, total_size=20 * 1024 * 1024, total_chunks=2)
+
+    resp = client.post(
+        f"/api/backup/upload-free/chunk/{upload_id}?index=1",
+        files={"chunk": ("c1", b"x" * (10 * 1024 * 1024), "application/octet-stream")},
+    )
+    assert resp.status_code == 400
+
+
+def test_chunk_unknown_upload_id(setup):
+    client, _, _ = setup
+    fake = "00000000-0000-0000-0000-000000000000"
+    resp = client.post(
+        f"/api/backup/upload-free/chunk/{fake}?index=0",
+        files={"chunk": ("c0", b"x", "application/octet-stream")},
+    )
+    assert resp.status_code == 404
+
+
+def test_chunk_invalid_upload_id_format(setup):
+    client, _, _ = setup
+    resp = client.post(
+        "/api/backup/upload-free/chunk/not-a-uuid?index=0",
+        files={"chunk": ("c0", b"x", "application/octet-stream")},
+    )
+    assert resp.status_code == 400
+
+
+def test_non_final_chunk_must_be_exact_size(setup):
+    client, _, _ = setup
+    upload_id = _init_upload(client, total_size=20 * 1024 * 1024, total_chunks=2)
+
+    resp = client.post(
+        f"/api/backup/upload-free/chunk/{upload_id}?index=0",
+        files={"chunk": ("c0", b"x" * 1024, "application/octet-stream")},
+    )
+    assert resp.status_code == 400
