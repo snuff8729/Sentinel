@@ -416,19 +416,20 @@ function ResourcesTab({ links, files, articleId, articleSlug, onUpdate }: {
   onUpdate: () => void
 }) {
   const [dragging, setDragging] = useState(false)
-  const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null)
 
   const uploadFiles = useCallback(async (fileList: FileList | File[]) => {
-    setUploading(true)
     try {
       for (const file of Array.from(fileList)) {
-        await backupApi.uploadFreeFile(articleId, file)
+        await backupApi.uploadFreeFile(articleId, file, undefined, (current, total) => {
+          setUploadProgress({ current, total })
+        })
       }
       onUpdate()
     } catch (e) {
       toast.error(`업로드 실패: ${e}`)
     } finally {
-      setUploading(false)
+      setUploadProgress(null)
     }
   }, [articleId, onUpdate])
 
@@ -463,9 +464,10 @@ function ResourcesTab({ links, files, articleId, articleSlug, onUpdate }: {
         </div>
       )}
 
-      {uploading && (
+      {uploadProgress && (
         <div className="text-sm p-2 rounded border bg-blue-50 border-blue-200 text-blue-600">
-          업로드 중...
+          업로드 중 ({uploadProgress.current}/{uploadProgress.total} 청크,{' '}
+          {Math.round((uploadProgress.current / uploadProgress.total) * 100)}%)
         </div>
       )}
 
