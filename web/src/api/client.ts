@@ -180,16 +180,50 @@ export const backupApi = {
   getHistoryCategories: () =>
     get<{ channel_slug: string; category: string; count: number }[]>('/backup/history/categories'),
 
-  uploadFreeFile: async (articleId: number, file: File, note?: string) => {
-    const formData = new FormData()
-    formData.append('file', file)
-    if (note) formData.append('note', note)
-    const res = await fetch(`${BASE}/backup/upload-free/${articleId}`, {
+  uploadFreeFile: async (
+    articleId: number,
+    file: File,
+    note?: string,
+    onProgress?: (current: number, total: number) => void
+  ) => {
+    const CHUNK = 10 * 1024 * 1024
+    const totalChunks = Math.max(1, Math.ceil(file.size / CHUNK))
+
+    const initRes = await fetch(`${BASE}/backup/upload-free/init`, {
       method: 'POST',
-      body: formData,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        article_id: articleId,
+        filename: file.name,
+        total_size: file.size,
+        total_chunks: totalChunks,
+        note,
+      }),
     })
-    if (!res.ok) throw new Error(`API error: ${res.status}`)
-    return res.json() as Promise<{ status: string; filename: string; size_kb: number }>
+    if (!initRes.ok) throw new Error(`init failed: ${initRes.status}`)
+    const { upload_id } = (await initRes.json()) as { upload_id: string }
+
+    try {
+      for (let i = 0; i < totalChunks; i++) {
+        const blob = file.slice(i * CHUNK, (i + 1) * CHUNK)
+        const fd = new FormData()
+        fd.append('chunk', blob)
+        const r = await fetch(`${BASE}/backup/upload-free/chunk/${upload_id}?index=${i}`, {
+          method: 'POST',
+          body: fd,
+        })
+        if (!r.ok) throw new Error(`chunk ${i} failed: ${r.status}`)
+        onProgress?.(i + 1, totalChunks)
+      }
+      const completeRes = await fetch(`${BASE}/backup/upload-free/complete/${upload_id}`, {
+        method: 'POST',
+      })
+      if (!completeRes.ok) throw new Error(`complete failed: ${completeRes.status}`)
+      return (await completeRes.json()) as { filename: string; size_kb: number }
+    } catch (err) {
+      fetch(`${BASE}/backup/upload-free/${upload_id}`, { method: 'DELETE' }).catch(() => {})
+      throw err
+    }
   },
 
   updateFreeFile: (fileId: number, data: { filename?: string; note?: string; source_link_id?: number | null }) =>
