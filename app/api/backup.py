@@ -409,6 +409,15 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
 
         return {"filename": meta["filename"], "size_kb": round(meta["total_size"] / 1024, 1)}
 
+    @router.delete("/upload-free/{upload_id}")
+    async def upload_free_abort(upload_id: str):
+        _validate_upload_id(upload_id)
+        async with _uploads_lock:
+            meta = _uploads.pop(upload_id, None)
+        if meta:
+            Path(meta["temp_path"]).unlink(missing_ok=True)
+        return {"aborted": True}
+
     @router.post("/upload-free/{article_id}")
     async def upload_free_file(article_id: int, file: UploadFile = File(...), note: str = Form("")):
         """링크와 관계없는 자유 파일 업로드."""

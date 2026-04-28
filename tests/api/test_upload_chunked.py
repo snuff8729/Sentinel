@@ -220,3 +220,31 @@ def test_complete_filename_traversal_blocked(setup):
     assert resp.status_code == 200
     final = tmp_path / "articles" / "1" / "downloads" / "passwd"
     assert final.exists()
+
+
+def test_abort_removes_temp_and_meta(setup):
+    client, tmp_path, _ = setup
+    payload = b"partial"
+    upload_id = _init_upload(client, total_size=len(payload), total_chunks=1)
+    _send_chunk(client, upload_id, 0, payload)
+    temp = tmp_path / ".uploads" / f"{upload_id}.part"
+    assert temp.exists()
+
+    resp = client.delete(f"/api/backup/upload-free/{upload_id}")
+    assert resp.status_code == 200
+    assert resp.json() == {"aborted": True}
+    assert not temp.exists()
+
+
+def test_abort_unknown_upload_id_idempotent(setup):
+    client, _, _ = setup
+    fake = "00000000-0000-0000-0000-000000000000"
+    resp = client.delete(f"/api/backup/upload-free/{fake}")
+    assert resp.status_code == 200
+    assert resp.json() == {"aborted": True}
+
+
+def test_abort_invalid_upload_id_format(setup):
+    client, _, _ = setup
+    resp = client.delete("/api/backup/upload-free/not-a-uuid")
+    assert resp.status_code == 400
