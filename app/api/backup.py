@@ -2,17 +2,40 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
+import re
 import subprocess
 import sys
+import uuid
 
 from pathlib import Path
 
-from fastapi import APIRouter, Body, UploadFile, File, Form
+from fastapi import APIRouter, Body, UploadFile, File, Form, HTTPException
 from fastapi.responses import HTMLResponse
 from starlette.responses import StreamingResponse
 
 from app.backup.events import EventBus
 from app.backup.worker import BackupWorker
+
+
+CHUNK_SIZE = 10 * 1024 * 1024  # 10MB
+MAX_TOTAL_SIZE = 10 * 1024 * 1024 * 1024  # 10GB
+
+_uploads: dict[str, dict] = {}
+_uploads_lock = asyncio.Lock()
+
+
+def _normalize_filename(name: str | None) -> str:
+    base = Path(name or "uploaded_file").name
+    base = re.sub(r'[<>:"|?*\x00-\x1f]', "_", base)
+    return base or "uploaded_file"
+
+
+def _validate_upload_id(upload_id: str) -> None:
+    try:
+        uuid.UUID(upload_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="invalid upload_id")
 
 
 def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None) -> APIRouter:
@@ -267,6 +290,45 @@ def create_backup_router(worker: BackupWorker, event_bus: EventBus, engine=None)
                     for v in versions
                 ],
             }
+
+    @router.post("/upload-free/init")
+    async def upload_free_init(body: dict = Body(...)):
+        article_id = body.get("article_id")
+        filename = body.get("filename")
+        total_size = body.get("total_size")
+        total_chunks = body.get("total_chunks")
+        note = body.get("note")
+
+        if not isinstance(article_id, int):
+            raise HTTPException(400, "article_id required (int)")
+        if not isinstance(total_size, int) or total_size < 0:
+            raise HTTPException(400, "total_size invalid")
+        if total_size > MAX_TOTAL_SIZE:
+            raise HTTPException(413, f"file too large (max {MAX_TOTAL_SIZE} bytes)")
+        expected_chunks = max(1, math.ceil(total_size / CHUNK_SIZE)) if total_size > 0 else 1
+        if total_chunks != expected_chunks:
+            raise HTTPException(400, f"total_chunks mismatch (expected {expected_chunks}, got {total_chunks})")
+
+        safe_name = _normalize_filename(filename)
+        upload_id = str(uuid.uuid4())
+
+        data_dir = Path(worker._service._data_dir) if worker else Path("data")
+        uploads_dir = data_dir / ".uploads"
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+        temp_path = uploads_dir / f"{upload_id}.part"
+
+        async with _uploads_lock:
+            _uploads[upload_id] = {
+                "article_id": article_id,
+                "filename": safe_name,
+                "total_size": total_size,
+                "total_chunks": total_chunks,
+                "received": 0,
+                "note": note,
+                "temp_path": str(temp_path),
+            }
+
+        return {"upload_id": upload_id}
 
     @router.post("/upload-free/{article_id}")
     async def upload_free_file(article_id: int, file: UploadFile = File(...), note: str = Form("")):
