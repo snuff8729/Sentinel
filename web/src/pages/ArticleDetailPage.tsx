@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -6,6 +6,7 @@ import { articleApi, backupApi, channelApi, versionApi } from '@/api/client'
 import type { ChannelInfo } from '@/api/types'
 import { Input } from '@/components/ui/input'
 import type { ArticleDetail } from '@/api/types'
+import { attachNaiBadges } from '@/lib/imageMetaBadge'
 import '@/styles/article-content.css'
 
 export function ArticleDetailPage() {
@@ -21,6 +22,7 @@ export function ArticleDetailPage() {
   const [backupStatus, setBackupStatus] = useState<string | null>(null)
   const [versionGroup, setVersionGroup] = useState<{ id: number; name: string; articles: { id: number; title: string; version_label: string | null; backup_status: string; created_at: string | null }[] } | null>(null)
   const [channelInfo, setChannelInfo] = useState<ChannelInfo | null>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!slug || !id) return
@@ -48,6 +50,12 @@ export function ArticleDetailPage() {
       }
     }).catch(() => setVersionGroup(null))
   }, [slug, id])
+
+  useEffect(() => {
+    if (!detail || !contentRef.current) return
+    const cleanup = attachNaiBadges(contentRef.current, detail.id)
+    return cleanup
+  }, [detail?.id])
 
   const handleSearchVersions = async (keyword: string) => {
     setVersionSearch(keyword)
@@ -271,6 +279,7 @@ export function ArticleDetailPage() {
 
       {/* 본문 */}
       <div
+        ref={contentRef}
         className="arca-article-content border-t pt-4"
         dangerouslySetInnerHTML={{ __html: detail.content_html }}
       />
