@@ -112,7 +112,9 @@ export function SavedImageDialog({
           )}
           {data && (
             <div className="flex justify-between items-center pt-4 border-t text-xs text-muted-foreground gap-2">
-              {data.channel_slug ? (
+              {data.source === 'library' ? (
+                <span className="opacity-60">라이브러리</span>
+              ) : data.channel_slug ? (
                 <a
                   href={`/article/${data.channel_slug}/${data.article_id}`}
                   target="_blank"

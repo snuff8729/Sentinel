@@ -288,6 +288,7 @@ export interface SavedImageItem {
   completed_at: string | null
   tags: TagSummary[]
   channel_slug?: string | null
+  source?: string
 }
 
 export interface SavedImageList {
