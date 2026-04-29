@@ -38,6 +38,7 @@ def create_engine_and_tables(db_url: str | None = None):
     with engine.connect() as conn:
         conn.execute(text("CREATE INDEX IF NOT EXISTS ix_article_version_group_id ON article(version_group_id)"))
         conn.execute(text("CREATE INDEX IF NOT EXISTS ix_article_backup_status ON article(backup_status)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_image_meta_cache_article_id ON image_meta_cache(article_id)"))
         conn.commit()
 
     return engine

@@ -89,3 +89,11 @@ class Download(SQLModel, table=True):
     status: str = Field(default="pending")
     error: str | None = None
     warning: str | None = None
+
+
+class ImageMetaCache(SQLModel, table=True):
+    __tablename__ = "image_meta_cache"
+    key: str = Field(primary_key=True)
+    article_id: int = Field(index=True)
+    has_nai: bool
+    fetched_at: datetime
