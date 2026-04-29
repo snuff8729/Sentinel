@@ -71,3 +71,180 @@ def test_get_returns_row(client):
     body = r.json()
     assert body["article_id"] == 42
     assert body["status"] == "pending"
+
+
+def test_list_returns_paginated_items_with_tags(client):
+    c, engine, _ = client
+    from sqlmodel import Session, select
+    from datetime import datetime, timezone
+    from app.db.models import SavedImage
+    from app.saved.tags import TagService
+
+    with Session(engine) as s:
+        for hx in ["a", "b"]:
+            s.add(SavedImage(
+                article_id=42, hex=hx, src_url="https://ac.namu.la/x.png",
+                file_path=f"saved/42/{hx}.png", status="completed",
+                created_at=datetime.now(timezone.utc),
+            ))
+        s.commit()
+        first_id = s.exec(select(SavedImage.id).order_by(SavedImage.id)).first()
+    tag_svc = TagService(engine)
+    t = tag_svc.get_or_create("foo")
+    tag_svc.assign(first_id, t.id)
+
+    r = c.get("/api/saved-images?offset=0&limit=10")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["total"] == 2
+    assert body["has_more"] is False
+    assert len(body["items"]) == 2
+    by_id = {it["id"]: it for it in body["items"]}
+    assert by_id[first_id]["tags"] == [{"id": t.id, "value": "foo"}]
+
+
+def test_list_untagged_filter(client):
+    c, engine, _ = client
+    from sqlmodel import Session, select
+    from datetime import datetime, timezone
+    from app.db.models import SavedImage
+    from app.saved.tags import TagService
+
+    with Session(engine) as s:
+        for hx in ["a", "b"]:
+            s.add(SavedImage(
+                article_id=42, hex=hx, src_url="x", file_path=f"saved/42/{hx}.png",
+                status="completed", created_at=datetime.now(timezone.utc),
+            ))
+        s.commit()
+        ids = list(s.exec(select(SavedImage.id).order_by(SavedImage.id)).all())
+    tag_svc = TagService(engine)
+    t = tag_svc.get_or_create("foo")
+    tag_svc.assign(ids[0], t.id)
+
+    r = c.get("/api/saved-images?untagged=true")
+    body = r.json()
+    assert [it["id"] for it in body["items"]] == [ids[1]]
+
+
+def test_list_tag_prefix_filter(client):
+    c, engine, _ = client
+    from sqlmodel import Session, select
+    from datetime import datetime, timezone
+    from app.db.models import SavedImage
+    from app.saved.tags import TagService
+
+    with Session(engine) as s:
+        for hx in ["a", "b", "c"]:
+            s.add(SavedImage(
+                article_id=42, hex=hx, src_url="x", file_path=f"saved/42/{hx}.png",
+                status="completed", created_at=datetime.now(timezone.utc),
+            ))
+        s.commit()
+        ids = list(s.exec(select(SavedImage.id).order_by(SavedImage.id)).all())
+    tag_svc = TagService(engine)
+    char = tag_svc.get_or_create("character:miku")
+    artist = tag_svc.get_or_create("artist:foo")
+    tag_svc.assign(ids[0], char.id)
+    tag_svc.assign(ids[1], artist.id)
+
+    r = c.get("/api/saved-images?tag_prefix=character:")
+    body = r.json()
+    assert [it["id"] for it in body["items"]] == [ids[0]]
+
+
+def test_list_rejects_untagged_and_prefix_together(client):
+    c, _, _ = client
+    r = c.get("/api/saved-images?untagged=true&tag_prefix=foo")
+    assert r.status_code == 400
+
+
+def test_delete_endpoint_removes_db_row(client):
+    c, engine, _ = client
+    from sqlmodel import Session
+    from datetime import datetime, timezone
+    from app.db.models import SavedImage
+
+    with Session(engine) as s:
+        img = SavedImage(
+            article_id=42, hex="abc", src_url="x",
+            file_path=None,  # no file path → service skips file ops
+            status="completed", created_at=datetime.now(timezone.utc),
+        )
+        s.add(img); s.commit(); s.refresh(img)
+        img_id = img.id
+
+    r = c.delete(f"/api/saved-images/{img_id}")
+    assert r.status_code == 200
+    assert r.json() == {"deleted": True}
+    with Session(engine) as s:
+        assert s.get(SavedImage, img_id) is None
+
+
+def test_delete_endpoint_404_for_missing(client):
+    c, _, _ = client
+    r = c.delete("/api/saved-images/99999")
+    assert r.status_code == 404
+
+
+def test_post_tag_creates_and_assigns(client):
+    c, engine, _ = client
+    from sqlmodel import Session, select
+    from datetime import datetime, timezone
+    from app.db.models import SavedImage, Tag, ImageTag
+
+    with Session(engine) as s:
+        img = SavedImage(article_id=42, hex="abc", src_url="x", status="completed",
+                         created_at=datetime.now(timezone.utc))
+        s.add(img); s.commit(); s.refresh(img); img_id = img.id
+
+    r = c.post(f"/api/saved-images/{img_id}/tags", json={"value": "Character:Miku"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["tag"]["value"] == "character:miku"
+    tag_id = body["tag"]["id"]
+    with Session(engine) as s:
+        assert s.get(Tag, tag_id).value == "character:miku"
+        link = s.exec(select(ImageTag).where(
+            ImageTag.image_id == img_id, ImageTag.tag_id == tag_id
+        )).first()
+        assert link is not None
+
+
+def test_delete_tag_removes_assignment(client):
+    c, engine, _ = client
+    from sqlmodel import Session, select
+    from datetime import datetime, timezone
+    from app.db.models import SavedImage, ImageTag
+    from app.saved.tags import TagService
+
+    with Session(engine) as s:
+        img = SavedImage(article_id=42, hex="abc", src_url="x", status="completed",
+                         created_at=datetime.now(timezone.utc))
+        s.add(img); s.commit(); s.refresh(img); img_id = img.id
+    tag_svc = TagService(engine)
+    t = tag_svc.get_or_create("foo")
+    tag_svc.assign(img_id, t.id)
+
+    r = c.delete(f"/api/saved-images/{img_id}/tags/{t.id}")
+    assert r.status_code == 200
+    with Session(engine) as s:
+        link = s.exec(select(ImageTag).where(
+            ImageTag.image_id == img_id, ImageTag.tag_id == t.id
+        )).first()
+    assert link is None
+
+
+def test_post_tag_rejects_empty(client):
+    c, engine, _ = client
+    from sqlmodel import Session
+    from datetime import datetime, timezone
+    from app.db.models import SavedImage
+
+    with Session(engine) as s:
+        img = SavedImage(article_id=42, hex="abc", src_url="x", status="completed",
+                         created_at=datetime.now(timezone.utc))
+        s.add(img); s.commit(); s.refresh(img); img_id = img.id
+
+    r = c.post(f"/api/saved-images/{img_id}/tags", json={"value": "   "})
+    assert r.status_code == 400
