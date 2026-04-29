@@ -7,6 +7,7 @@ import type { ChannelInfo } from '@/api/types'
 import { Input } from '@/components/ui/input'
 import type { ArticleDetail } from '@/api/types'
 import { attachNaiBadges } from '@/lib/imageMetaBadge'
+import { NaiMetadataDialog } from '@/components/NaiMetadataDialog'
 import '@/styles/article-content.css'
 
 export function ArticleDetailPage() {
@@ -22,6 +23,7 @@ export function ArticleDetailPage() {
   const [backupStatus, setBackupStatus] = useState<string | null>(null)
   const [versionGroup, setVersionGroup] = useState<{ id: number; name: string; articles: { id: number; title: string; version_label: string | null; backup_status: string; created_at: string | null }[] } | null>(null)
   const [channelInfo, setChannelInfo] = useState<ChannelInfo | null>(null)
+  const [dialogTarget, setDialogTarget] = useState<{ url: string; articleId: number } | null>(null)
   const contentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -53,7 +55,9 @@ export function ArticleDetailPage() {
 
   useEffect(() => {
     if (!detail || !contentRef.current) return
-    const cleanup = attachNaiBadges(contentRef.current, detail.id)
+    const cleanup = attachNaiBadges(contentRef.current, detail.id, (url) => {
+      setDialogTarget({ url, articleId: detail.id })
+    })
     return cleanup
   }, [detail?.id])
 
@@ -291,6 +295,12 @@ export function ArticleDetailPage() {
           dangerouslySetInnerHTML={{ __html: commentsHtml }}
         />
       )}
+      <NaiMetadataDialog
+        open={dialogTarget !== null}
+        onOpenChange={(v) => { if (!v) setDialogTarget(null) }}
+        imageUrl={dialogTarget?.url ?? null}
+        articleId={dialogTarget?.articleId ?? null}
+      />
     </div>
   )
 }
