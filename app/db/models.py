@@ -98,3 +98,18 @@ class ImageMetaCache(SQLModel, table=True):
     has_nai: bool
     payload_json: str | None = None
     fetched_at: datetime
+
+
+class SavedImage(SQLModel, table=True):
+    __tablename__ = "saved_image"
+    id: int | None = Field(default=None, primary_key=True)
+    article_id: int = Field(index=True)
+    hex: str = Field(index=True)
+    src_url: str
+    file_path: str | None = None
+    payload_json: str | None = None
+    status: str = Field(default="pending", index=True)
+    error: str | None = None
+    retry_count: int = Field(default=0)
+    created_at: datetime
+    completed_at: datetime | None = None

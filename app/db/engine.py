@@ -54,6 +54,8 @@ def create_engine_and_tables(db_url: str | None = None):
             conn.execute(text("ALTER TABLE image_meta_cache ADD COLUMN payload_json TEXT"))
         except Exception:
             pass  # column already exists
+        conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_saved_image_aid_hex ON saved_image(article_id, hex)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_saved_image_status ON saved_image(status)"))
         conn.commit()
 
     return engine
