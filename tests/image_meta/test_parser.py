@@ -91,3 +91,21 @@ def test_parse_nai_metadata_returns_none_for_png_without_comment_chunk():
     idat = (0).to_bytes(4, "big") + b"IDAT" + b"\x00\x00\x00\x00"
     buf = sig + ihdr + idat
     assert parse_nai_metadata(buf) is None
+
+
+def test_parse_nai_metadata_extracts_from_stealth_alpha():
+    data = (FIXTURE_DIR / "nai_stealth_sample.png").read_bytes()
+    meta = parse_nai_metadata(data)
+    assert meta is not None
+    assert isinstance(meta.get("prompt"), str) and len(meta["prompt"]) > 0
+    assert isinstance(meta.get("steps"), int)
+    assert isinstance(meta.get("seed"), int)
+    assert meta.get("source") == "stealth_alpha"
+
+
+def test_parse_nai_metadata_prefers_text_chunks_over_stealth():
+    # nai_sample.png has PNG tEXt 'Comment' — should return via tEXt path with source='exif_user_comment'
+    data = (FIXTURE_DIR / "nai_sample.png").read_bytes()
+    meta = parse_nai_metadata(data)
+    assert meta is not None
+    assert meta.get("source") == "exif_user_comment"

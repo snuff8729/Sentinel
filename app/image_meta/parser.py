@@ -109,6 +109,13 @@ def _parse_nai_from_webp(buf: bytes) -> dict | None:
 
 
 def _parse_nai_from_png(buf: bytes) -> dict | None:
+    text_result = _parse_nai_from_png_text(buf)
+    if text_result is not None:
+        return text_result
+    return _parse_nai_from_png_stealth(buf)
+
+
+def _parse_nai_from_png_text(buf: bytes) -> dict | None:
     comment_str = _extract_png_text_chunk(buf, b"Comment")
     if comment_str is None:
         return None
@@ -119,6 +126,124 @@ def _parse_nai_from_png(buf: bytes) -> dict | None:
     if not isinstance(inner, dict) or "prompt" not in inner:
         return None
     return _convert_nai_format(inner)
+
+
+def _parse_nai_from_png_stealth(buf: bytes) -> dict | None:
+    try:
+        from io import BytesIO
+        from PIL import Image
+        img = Image.open(BytesIO(buf)).convert("RGBA")
+    except Exception:
+        return None
+
+    width, height = img.size
+    if width <= 0 or height <= 0:
+        return None
+    try:
+        alpha_bytes = img.split()[3].tobytes()
+    except Exception:
+        return None
+
+    sig_uncompressed = b"stealth_pnginfo"
+    sig_compressed = b"stealth_pngcomp"
+    sig_len_bits = len(sig_uncompressed) * 8
+
+    def alpha_at(x: int, y: int) -> int:
+        return alpha_bytes[y * width + x]
+
+    # Phase 1: signature (column-major)
+    sig_bits = []
+    for x in range(width):
+        for y in range(height):
+            sig_bits.append(alpha_at(x, y) & 1)
+            if len(sig_bits) == sig_len_bits:
+                break
+        if len(sig_bits) == sig_len_bits:
+            break
+    if len(sig_bits) < sig_len_bits:
+        return None
+    sig_bytes = _bits_to_bytes(sig_bits)
+    if sig_bytes == sig_uncompressed:
+        compressed = False
+    elif sig_bytes == sig_compressed:
+        compressed = True
+    else:
+        return None
+
+    # Phase 2: paramLen (32 bits)
+    cursor = sig_len_bits
+    plen_bits, cursor = _read_bits(alpha_bytes, width, height, cursor, 32)
+    if plen_bits is None:
+        return None
+    param_len = 0
+    for b in plen_bits:
+        param_len = (param_len << 1) | b
+    if param_len <= 0 or param_len > 80 * 1024 * 1024:
+        return None
+
+    # Phase 3: data (param_len bits)
+    data_bits, _ = _read_bits(alpha_bytes, width, height, cursor, param_len)
+    if data_bits is None:
+        return None
+    raw_bytes = _bits_to_bytes(data_bits)
+
+    if compressed:
+        try:
+            import gzip
+            json_str = gzip.decompress(raw_bytes).decode("utf-8", "replace")
+        except Exception:
+            return None
+    else:
+        json_str = raw_bytes.decode("utf-8", "replace")
+
+    try:
+        outer = json.loads(json_str)
+    except (ValueError, TypeError):
+        return None
+    if not isinstance(outer, dict):
+        return None
+
+    inner_str = outer.get("Comment")
+    if isinstance(inner_str, str):
+        try:
+            inner = json.loads(inner_str)
+        except (ValueError, TypeError):
+            inner = outer
+    else:
+        inner = outer
+
+    if not isinstance(inner, dict) or "prompt" not in inner:
+        return None
+
+    result = _convert_nai_format(inner)
+    result["source"] = "stealth_alpha"
+    return result
+
+
+def _bits_to_bytes(bits: list[int]) -> bytes:
+    n = len(bits) // 8
+    out = bytearray()
+    for i in range(n):
+        byte = 0
+        for j in range(8):
+            byte = (byte << 1) | bits[i * 8 + j]
+        out.append(byte)
+    return bytes(out)
+
+
+def _read_bits(alpha_bytes: bytes, width: int, height: int, start_pixel: int, n: int):
+    """Read n bits column-major starting from absolute pixel index. Returns (bits, new_cursor) or (None, None) on EOF."""
+    total = width * height
+    if start_pixel + n > total:
+        return None, None
+    bits = [0] * n
+    cursor = start_pixel
+    for k in range(n):
+        x = cursor // height
+        y = cursor % height
+        bits[k] = alpha_bytes[y * width + x] & 1
+        cursor += 1
+    return bits, cursor
 
 
 def _extract_png_text_chunk(buf: bytes, key: bytes) -> str | None:
