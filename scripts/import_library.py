@@ -5,7 +5,11 @@ Usage:
 
 Walks the folder recursively, imports .png/.jpg/.jpeg/.webp files via
 LibraryService.import_image. Idempotent — re-runs skip already-imported
-content (dedup by sha256). DATA_DIR env var overrides the default 'data/'."""
+content (dedup by sha256).
+
+Resolves data_dir using the same precedence as the runtime: DATA_DIR env
+var → DB Setting `data_dir` → fallback `'data'`. This keeps imports landing
+where the FastAPI `/data` static mount serves from."""
 
 from __future__ import annotations
 
@@ -15,11 +19,20 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.db.engine import create_engine_and_tables
+from app.db.engine import create_engine_and_tables, get_session
+from app.db.repository import get_setting
 from app.saved.library import LibraryService
 
-DATA_DIR = os.environ.get("DATA_DIR", "data")
 EXTS = {".png", ".jpg", ".jpeg", ".webp"}
+
+
+def _resolve_data_dir(engine) -> str:
+    env = os.environ.get("DATA_DIR")
+    if env:
+        return env
+    with get_session(engine) as session:
+        setting = get_setting(session, "data_dir")
+    return setting or "data"
 
 
 def main() -> int:
@@ -32,7 +45,9 @@ def main() -> int:
         return 1
 
     engine = create_engine_and_tables()
-    service = LibraryService(engine=engine, data_dir=DATA_DIR)
+    data_dir = _resolve_data_dir(engine)
+    print(f"data_dir: {data_dir}")
+    service = LibraryService(engine=engine, data_dir=data_dir)
 
     files = [p for p in folder.rglob("*") if p.is_file() and p.suffix.lower() in EXTS]
     total = len(files)
