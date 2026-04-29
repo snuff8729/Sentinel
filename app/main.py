@@ -12,6 +12,7 @@ from app.api.version import create_version_router
 from app.api.settings import create_settings_router
 from app.api.image_meta import create_image_meta_router
 from app.api.saved import create_saved_router
+from app.api.tags import create_tags_router
 from app.saved.worker import SavedImageWorker
 from app.backup.events import EventBus
 from app.backup.service import BackupService
@@ -92,6 +93,9 @@ async def startup():
 
     saved_router = create_saved_router(engine=engine, data_dir=data_dir, worker_signal=saved_signal)
     app.include_router(saved_router, prefix="/api/saved-images")
+
+    tags_router = create_tags_router(engine)
+    app.include_router(tags_router, prefix="/api/tags")
 
     asyncio.create_task(worker.run())
 
