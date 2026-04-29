@@ -96,4 +96,5 @@ class ImageMetaCache(SQLModel, table=True):
     key: str = Field(primary_key=True)
     article_id: int = Field(index=True)
     has_nai: bool
+    payload_json: str | None = None
     fetched_at: datetime
