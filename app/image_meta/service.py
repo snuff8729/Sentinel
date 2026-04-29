@@ -15,13 +15,13 @@ from app.db.engine import get_session
 from app.db.models import ImageMetaCache
 from app.image_meta.parser import parse_has_nai
 
-_HEX64_RE = re.compile(r"([a-fA-F0-9]{64})")
+_HEX64_RE = re.compile(r"[a-fA-F0-9]{64}")
 
 
 def _make_key(article_id: int, url: str) -> str:
     m = _HEX64_RE.search(url)
     if m:
-        return f"{article_id}_{m.group(1).lower()}"
+        return f"{article_id}_{m.group(0).lower()}"
     digest = hashlib.sha1(url.encode("utf-8")).hexdigest()
     return f"{article_id}_{digest}"
 

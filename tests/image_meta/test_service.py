@@ -60,11 +60,22 @@ def test_fetch_returning_none_does_not_cache():
     assert len(rows) == 0
 
 
+def test_non_nai_result_is_cached():
+    service, _, calls = _make_service(parse_result=False)
+    first = service.get_or_fetch(article_id=42, url=URL)
+    assert first == {"has_nai": False, "cached": False}
+    second = service.get_or_fetch(article_id=42, url=URL)
+    assert second == {"has_nai": False, "cached": True}
+    assert calls["fetch"] == 1
+
+
 def test_url_without_hex_uses_sha1_fallback():
     service, engine, _ = _make_service(parse_result=True)
     service.get_or_fetch(article_id=42, url="https://ac-p3.namu.la/file.png")
     with Session(engine) as s:
         row = s.exec(select(ImageMetaCache)).first()
     assert row is not None
-    assert row.key.startswith("42_")
-    assert len(row.key) == 3 + 40  # "42_" + sha1 hex (40 chars)
+    prefix, digest = row.key.split("_", 1)
+    assert prefix == "42"
+    assert len(digest) == 40
+    assert all(c in "0123456789abcdef" for c in digest)
