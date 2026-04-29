@@ -9,6 +9,7 @@ import { HistoryPage } from '@/pages/HistoryPage'
 import { BackupDetailPage } from '@/pages/BackupDetailPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { VersionsPage } from '@/pages/VersionsPage'
+import { SavedGalleryPage } from '@/pages/SavedGalleryPage'
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
           <Link to="/queue" className="text-muted-foreground hover:text-foreground">큐</Link>
           <Link to="/history" className="text-muted-foreground hover:text-foreground">이력</Link>
           <Link to="/versions" className="text-muted-foreground hover:text-foreground">버전</Link>
+          <Link to="/saved" className="text-muted-foreground hover:text-foreground">저장됨</Link>
           <Link to="/settings" className="text-muted-foreground hover:text-foreground">설정</Link>
         </nav>
         <main className="p-6">
@@ -36,6 +38,7 @@ function App() {
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/backup/:id" element={<BackupDetailPage />} />
             <Route path="/versions" element={<VersionsPage />} />
+            <Route path="/saved" element={<SavedGalleryPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         </main>
