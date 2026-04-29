@@ -64,12 +64,12 @@ def _walk_ifd_for_user_comment(payload: bytes, off: int, fmt: str) -> str | None
             return None
         tag, type_, count = struct.unpack(fmt + "HHI", payload[e : e + 8])
         vbytes = payload[e + 8 : e + 12]
-        if tag == 0x8769:
+        if tag == 0x8769:  # ExifIFDPointer
             (sub_off,) = struct.unpack(fmt + "I", vbytes)
             sub = _walk_ifd_for_user_comment(payload, sub_off, fmt)
             if sub is not None:
                 return sub
-        elif tag == 0x9286:
+        elif tag == 0x9286:  # UserComment
             return _decode_user_comment(payload, fmt, type_, count, vbytes)
     return None
 

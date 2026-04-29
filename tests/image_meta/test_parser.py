@@ -16,7 +16,7 @@ def test_non_webp_bytes_return_false():
 
 
 def test_webp_without_exif_returns_false():
-    riff_size = 4 + 8 + 10
+    riff_size = 4 + 8 + 10  # WEBP fourcc(4) + VP8X chunk header(8) + VP8X body(10)
     buf = b"RIFF" + riff_size.to_bytes(4, "little") + b"WEBP"
     buf += b"VP8X" + (10).to_bytes(4, "little") + b"\x00" * 10
     assert parse_has_nai(buf) is False
