@@ -11,6 +11,8 @@ from app.api.follow import create_follow_router
 from app.api.version import create_version_router
 from app.api.settings import create_settings_router
 from app.api.image_meta import create_image_meta_router
+from app.api.saved import create_saved_router
+from app.saved.worker import SavedImageWorker
 from app.backup.events import EventBus
 from app.backup.service import BackupService
 from app.backup.worker import BackupWorker
@@ -83,6 +85,13 @@ async def startup():
 
     image_meta_router = create_image_meta_router(engine)
     app.include_router(image_meta_router, prefix="/api/image-meta")
+
+    saved_signal = asyncio.Event()
+    saved_worker = SavedImageWorker(engine=engine, data_dir=data_dir, signal=saved_signal)
+    asyncio.create_task(saved_worker.run())
+
+    saved_router = create_saved_router(engine=engine, data_dir=data_dir, worker_signal=saved_signal)
+    app.include_router(saved_router, prefix="/api/saved-images")
 
     asyncio.create_task(worker.run())
 
