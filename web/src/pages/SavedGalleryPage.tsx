@@ -8,11 +8,13 @@ import { SavedImageDialog } from '@/components/SavedImageDialog'
 
 const PAGE_SIZE = 60
 
+type FilterMode = 'all' | 'untagged' | 'no_exif'
+
 export function SavedGalleryPage() {
   const [items, setItems] = useState<SavedImageItem[]>([])
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(false)
-  const [untagged, setUntagged] = useState(false)
+  const [mode, setMode] = useState<FilterMode>('all')
   const [tagPrefixInput, setTagPrefixInput] = useState('')
   const [debouncedPrefix, setDebouncedPrefix] = useState('')
   const [openId, setOpenId] = useState<number | null>(null)
@@ -23,6 +25,14 @@ export function SavedGalleryPage() {
     return () => clearTimeout(handle)
   }, [tagPrefixInput])
 
+  const buildParams = (offset: number) => ({
+    offset,
+    limit: PAGE_SIZE,
+    untagged: mode === 'untagged',
+    no_exif: mode === 'no_exif',
+    tag_prefix: mode === 'all' ? debouncedPrefix || undefined : undefined,
+  })
+
   useEffect(() => {
     reloadRef.current++
     const myReload = reloadRef.current
@@ -30,12 +40,7 @@ export function SavedGalleryPage() {
     setHasMore(true)
     setLoading(true)
     savedImagesApi
-      .list({
-        offset: 0,
-        limit: PAGE_SIZE,
-        untagged,
-        tag_prefix: untagged ? undefined : debouncedPrefix || undefined,
-      })
+      .list(buildParams(0))
       .then(data => {
         if (reloadRef.current !== myReload) return
         setItems(data.items)
@@ -50,19 +55,15 @@ export function SavedGalleryPage() {
         if (reloadRef.current !== myReload) return
         setLoading(false)
       })
-  }, [untagged, debouncedPrefix])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, debouncedPrefix])
 
   const loadMore = () => {
     if (loading || !hasMore) return
     const myReload = reloadRef.current
     setLoading(true)
     savedImagesApi
-      .list({
-        offset: items.length,
-        limit: PAGE_SIZE,
-        untagged,
-        tag_prefix: untagged ? undefined : debouncedPrefix || undefined,
-      })
+      .list(buildParams(items.length))
       .then(data => {
         if (reloadRef.current !== myReload) return
         setItems(prev => [...prev, ...data.items])
@@ -82,31 +83,38 @@ export function SavedGalleryPage() {
     setItems(prev => prev.map(i => (i.id === id ? { ...i, tags } : i)))
   }
 
-  const handleUntaggedToggle = (next: boolean) => {
-    setUntagged(next)
-    if (next) setTagPrefixInput('')
+  const handleModeChange = (next: FilterMode) => {
+    setMode(next)
+    if (next !== 'all') setTagPrefixInput('')
   }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <Button
-          variant={!untagged ? 'default' : 'outline'}
+          variant={mode === 'all' ? 'default' : 'outline'}
           size="sm"
-          onClick={() => handleUntaggedToggle(false)}
+          onClick={() => handleModeChange('all')}
         >
           전체
         </Button>
         <Button
-          variant={untagged ? 'default' : 'outline'}
+          variant={mode === 'untagged' ? 'default' : 'outline'}
           size="sm"
-          onClick={() => handleUntaggedToggle(true)}
+          onClick={() => handleModeChange('untagged')}
         >
           태그 없음
         </Button>
+        <Button
+          variant={mode === 'no_exif' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => handleModeChange('no_exif')}
+        >
+          EXIF 없음
+        </Button>
         <Input
           value={tagPrefixInput}
-          disabled={untagged}
+          disabled={mode !== 'all'}
           onChange={e => setTagPrefixInput(e.target.value)}
           placeholder="태그 검색 (예: character:)"
           className="max-w-sm ml-auto"
@@ -120,7 +128,7 @@ export function SavedGalleryPage() {
               key={item.id}
               type="button"
               onClick={() => setOpenId(item.id)}
-              className="block aspect-square overflow-hidden rounded border hover:ring-2 hover:ring-primary"
+              className="relative block aspect-square overflow-hidden rounded border hover:ring-2 hover:ring-primary"
             >
               {item.file_path && (
                 <img
@@ -129,6 +137,11 @@ export function SavedGalleryPage() {
                   loading="lazy"
                   alt=""
                 />
+              )}
+              {item.payload_json == null && (
+                <span className="absolute top-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-white text-[10px] font-medium tracking-wide pointer-events-none">
+                  EXIF 없음
+                </span>
               )}
             </button>
           ))}

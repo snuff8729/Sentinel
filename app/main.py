@@ -88,10 +88,15 @@ async def startup():
     app.include_router(image_meta_router, prefix="/api/image-meta")
 
     saved_signal = asyncio.Event()
-    saved_worker = SavedImageWorker(engine=engine, data_dir=data_dir, signal=saved_signal)
+    saved_event_bus = EventBus()
+    saved_worker = SavedImageWorker(
+        engine=engine, data_dir=data_dir, signal=saved_signal, event_bus=saved_event_bus,
+    )
     asyncio.create_task(saved_worker.run())
 
-    saved_router = create_saved_router(engine=engine, data_dir=data_dir, worker_signal=saved_signal)
+    saved_router = create_saved_router(
+        engine=engine, data_dir=data_dir, worker_signal=saved_signal, event_bus=saved_event_bus,
+    )
     app.include_router(saved_router, prefix="/api/saved-images")
 
     tags_router = create_tags_router(engine)

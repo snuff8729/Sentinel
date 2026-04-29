@@ -7,17 +7,30 @@ HTTP 400 is reserved for malformed payloads (missing article_id/url)."""
 from __future__ import annotations
 
 import asyncio
+import json
 
 from fastapi import APIRouter, HTTPException, Query
+from starlette.responses import StreamingResponse
 
+from app.backup.events import Event, EventBus
 from app.saved.service import SavedImageService
 from app.saved.tags import TagService
 
 
-def create_saved_router(engine, data_dir: str, worker_signal: asyncio.Event) -> APIRouter:
+def create_saved_router(
+    engine,
+    data_dir: str,
+    worker_signal: asyncio.Event,
+    event_bus: EventBus | None = None,
+) -> APIRouter:
     router = APIRouter()
     service = SavedImageService(engine=engine, data_dir=data_dir)
     tag_service = TagService(engine)
+    bus = event_bus or EventBus()
+
+    async def publish_snapshot():
+        snap = await asyncio.to_thread(service.queue_snapshot)
+        bus.publish(Event(type="saved_queue_updated", data=snap))
 
     @router.post("")
     async def enqueue_save(payload: dict):
@@ -28,6 +41,7 @@ def create_saved_router(engine, data_dir: str, worker_signal: asyncio.Event) -> 
         result = await asyncio.to_thread(service.enqueue, article_id, url)
         if result.get("status") == "queued":
             worker_signal.set()
+            await publish_snapshot()
         return result
 
     @router.get("")
@@ -36,11 +50,39 @@ def create_saved_router(engine, data_dir: str, worker_signal: asyncio.Event) -> 
         limit: int = Query(60, ge=1, le=200),
         untagged: bool = Query(False),
         tag_prefix: str | None = Query(None, max_length=100),
+        no_exif: bool = Query(False),
     ):
         if untagged and tag_prefix:
             raise HTTPException(status_code=400, detail="untagged and tag_prefix are mutually exclusive")
         return await asyncio.to_thread(
-            service.list_saved, offset, limit, untagged, tag_prefix
+            service.list_saved, offset, limit, untagged, tag_prefix, no_exif
+        )
+
+    @router.get("/queue")
+    async def get_queue():
+        return await asyncio.to_thread(service.queue_snapshot)
+
+    @router.get("/events")
+    async def saved_events():
+        q = bus.subscribe()
+
+        async def generate():
+            try:
+                while True:
+                    event = await q.get()
+                    yield f"event: {event.type}\ndata: {json.dumps(event.data, ensure_ascii=False)}\n\n"
+            except asyncio.CancelledError:
+                pass
+            finally:
+                bus.unsubscribe(q)
+
+        return StreamingResponse(
+            generate(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+            },
         )
 
     @router.get("/{save_id}")
@@ -55,6 +97,7 @@ def create_saved_router(engine, data_dir: str, worker_signal: asyncio.Event) -> 
         ok = await asyncio.to_thread(service.delete_saved, save_id)
         if not ok:
             raise HTTPException(status_code=404, detail="not found")
+        await publish_snapshot()
         return {"deleted": True}
 
     @router.post("/{save_id}/tags")

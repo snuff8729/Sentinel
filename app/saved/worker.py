@@ -3,7 +3,8 @@
 Polls SavedImage rows where status='pending', processes one at a time
 (concurrency 1, mindful of arca CDN rate limits). On exception, retries
 up to 3 times with exponential backoff (2s, 4s, 8s). Resets in_progress
-zombies to pending on startup."""
+zombies to pending on startup. Publishes `saved_queue_updated` events
+on every state transition for SSE consumers."""
 
 from __future__ import annotations
 
@@ -14,24 +15,35 @@ from datetime import datetime, timezone
 
 from sqlmodel import select
 
+from app.backup.events import Event, EventBus
 from app.db.engine import get_session
 from app.db.models import SavedImage
 from app.image_meta.fetcher import fetch_full_image
 from app.image_meta.parser import parse_nai_metadata
+from app.saved.service import SavedImageService
 from app.saved.storage import write_saved_image
 
 logger = logging.getLogger(__name__)
 
 
 class SavedImageWorker:
-    def __init__(self, engine, data_dir: str, signal: asyncio.Event):
+    def __init__(
+        self,
+        engine,
+        data_dir: str,
+        signal: asyncio.Event,
+        event_bus: EventBus | None = None,
+    ):
         self._engine = engine
         self._data_dir = data_dir
         self._signal = signal
         self._stop = False
+        self._event_bus = event_bus
+        self._service = SavedImageService(engine=engine, data_dir=data_dir)
 
     async def run(self):
         await asyncio.to_thread(self._reset_zombies)
+        await self._publish_snapshot()
         while not self._stop:
             row = await asyncio.to_thread(self._claim_next_pending)
             if row is None:
@@ -41,7 +53,15 @@ class SavedImageWorker:
                 except asyncio.TimeoutError:
                     pass
                 continue
+            await self._publish_snapshot()
             await self._process(row)
+            await self._publish_snapshot()
+
+    async def _publish_snapshot(self):
+        if self._event_bus is None:
+            return
+        snap = await asyncio.to_thread(self._service.queue_snapshot)
+        self._event_bus.publish(Event(type="saved_queue_updated", data=snap))
 
     def _reset_zombies(self):
         with get_session(self._engine) as session:

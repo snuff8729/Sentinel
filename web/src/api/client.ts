@@ -287,6 +287,7 @@ export interface SavedImageItem {
   created_at: string
   completed_at: string | null
   tags: TagSummary[]
+  channel_slug?: string | null
 }
 
 export interface SavedImageList {
@@ -295,13 +296,38 @@ export interface SavedImageList {
   has_more: boolean
 }
 
+export interface SavedImageQueueRow {
+  id: number
+  article_id: number
+  channel_slug: string | null
+  hex: string
+  status: string
+  retry_count: number
+  error: string | null
+  created_at: string | null
+  completed_at: string | null
+}
+
+export interface SavedImageQueueSnapshot {
+  pending: SavedImageQueueRow[]
+  in_progress: SavedImageQueueRow[]
+  failed: SavedImageQueueRow[]
+  recent_completed: SavedImageQueueRow[]
+}
+
 export const savedImagesApi = {
-  list: (params: { offset?: number; limit?: number; untagged?: boolean; tag_prefix?: string }) => {
+  getQueue: () =>
+    fetch(`${BASE}/saved-images/queue`).then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      return r.json() as Promise<SavedImageQueueSnapshot>
+    }),
+  list: (params: { offset?: number; limit?: number; untagged?: boolean; tag_prefix?: string; no_exif?: boolean }) => {
     const q = new URLSearchParams()
     if (params.offset != null) q.set('offset', String(params.offset))
     if (params.limit != null) q.set('limit', String(params.limit))
     if (params.untagged) q.set('untagged', 'true')
     if (params.tag_prefix) q.set('tag_prefix', params.tag_prefix)
+    if (params.no_exif) q.set('no_exif', 'true')
     return fetch(`${BASE}/saved-images?${q}`).then(r => {
       if (!r.ok) throw new Error(`HTTP ${r.status}`)
       return r.json() as Promise<SavedImageList>

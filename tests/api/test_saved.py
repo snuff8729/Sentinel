@@ -153,6 +153,132 @@ def test_list_tag_prefix_filter(client):
     assert [it["id"] for it in body["items"]] == [ids[0]]
 
 
+def test_enqueue_publishes_queue_updated_event():
+    from app.backup.events import EventBus
+    engine = create_engine_and_tables("sqlite:///:memory:")
+    signal = asyncio.Event()
+    bus = EventBus()
+    q = bus.subscribe()
+    app = FastAPI()
+    router = create_saved_router(
+        engine=engine, data_dir="/tmp/test", worker_signal=signal, event_bus=bus,
+    )
+    app.include_router(router, prefix="/api/saved-images")
+    c = TestClient(app)
+
+    r = c.post("/api/saved-images", json={"article_id": 42, "url": GOOD_URL})
+    assert r.status_code == 200
+    assert r.json()["status"] == "queued"
+
+    assert not q.empty()
+    event = q.get_nowait()
+    assert event.type == "saved_queue_updated"
+    assert "pending" in event.data
+    assert len(event.data["pending"]) == 1
+
+
+def test_queue_snapshot_groups_by_status(client):
+    c, engine, _ = client
+    from sqlmodel import Session
+    from datetime import datetime, timezone
+    from app.db.models import Article, SavedImage
+
+    now = datetime.now(timezone.utc)
+    with Session(engine) as s:
+        s.add(Article(id=42, channel_slug="aiart", title="t", author="a",
+                      created_at=now, url="https://arca.live/b/aiart/42"))
+        s.add(SavedImage(article_id=42, hex="p", src_url="x",
+                         status="pending", created_at=now))
+        s.add(SavedImage(article_id=42, hex="ip", src_url="x",
+                         status="in_progress", created_at=now))
+        s.add(SavedImage(article_id=42, hex="f", src_url="x",
+                         status="failed", error="boom", retry_count=3,
+                         created_at=now))
+        s.add(SavedImage(article_id=42, hex="c", src_url="x",
+                         file_path="saved/42/c.png",
+                         status="completed", created_at=now, completed_at=now))
+        s.commit()
+
+    body = c.get("/api/saved-images/queue").json()
+    assert len(body["pending"]) == 1
+    assert len(body["in_progress"]) == 1
+    assert len(body["failed"]) == 1
+    assert len(body["recent_completed"]) == 1
+    assert body["failed"][0]["error"] == "boom"
+    assert body["pending"][0]["channel_slug"] == "aiart"
+
+
+def test_queue_snapshot_does_not_collide_with_save_id_route(client):
+    c, _, _ = client
+    # Ensure /queue isn't matched by /{save_id:int}
+    r = c.get("/api/saved-images/queue")
+    assert r.status_code == 200
+    body = r.json()
+    assert "pending" in body
+
+
+def test_get_includes_channel_slug_when_article_exists(client):
+    c, engine, _ = client
+    from sqlmodel import Session
+    from datetime import datetime, timezone
+    from app.db.models import Article, SavedImage
+
+    with Session(engine) as s:
+        s.add(Article(
+            id=42, channel_slug="aiart", title="t", author="a",
+            created_at=datetime.now(timezone.utc), url="https://arca.live/b/aiart/42",
+        ))
+        img = SavedImage(article_id=42, hex="abc", src_url="x",
+                         file_path="saved/42/abc.png", status="completed",
+                         created_at=datetime.now(timezone.utc))
+        s.add(img); s.commit(); s.refresh(img); img_id = img.id
+
+    body = c.get(f"/api/saved-images/{img_id}").json()
+    assert body["channel_slug"] == "aiart"
+
+
+def test_get_channel_slug_null_when_article_missing(client):
+    c, engine, _ = client
+    from sqlmodel import Session
+    from datetime import datetime, timezone
+    from app.db.models import SavedImage
+
+    with Session(engine) as s:
+        img = SavedImage(article_id=999, hex="abc", src_url="x",
+                         file_path=None, status="completed",
+                         created_at=datetime.now(timezone.utc))
+        s.add(img); s.commit(); s.refresh(img); img_id = img.id
+
+    body = c.get(f"/api/saved-images/{img_id}").json()
+    assert body["channel_slug"] is None
+
+
+def test_list_no_exif_filter(client):
+    c, engine, _ = client
+    from sqlmodel import Session, select
+    from datetime import datetime, timezone
+    from app.db.models import SavedImage
+
+    with Session(engine) as s:
+        s.add(SavedImage(
+            article_id=42, hex="a", src_url="x", file_path="saved/42/a.png",
+            payload_json='{"prompt":"p"}',
+            status="completed", created_at=datetime.now(timezone.utc),
+        ))
+        s.add(SavedImage(
+            article_id=42, hex="b", src_url="x", file_path="saved/42/b.png",
+            payload_json=None,
+            status="completed", created_at=datetime.now(timezone.utc),
+        ))
+        s.commit()
+        ids = list(s.exec(select(SavedImage.id).order_by(SavedImage.id)).all())
+
+    r = c.get("/api/saved-images?no_exif=true")
+    body = r.json()
+    assert [it["id"] for it in body["items"]] == [ids[1]]
+    assert body["total"] == 1
+
+
 def test_list_rejects_untagged_and_prefix_together(client):
     c, _, _ = client
     r = c.get("/api/saved-images?untagged=true&tag_prefix=foo")

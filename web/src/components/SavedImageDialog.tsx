@@ -112,14 +112,18 @@ export function SavedImageDialog({
           )}
           {data && (
             <div className="flex justify-between items-center pt-4 border-t text-xs text-muted-foreground gap-2">
-              <a
-                href={`/data/${data.file_path}`}
-                target="_blank"
-                rel="noreferrer"
-                className="hover:underline"
-              >
-                글 #{data.article_id} · 원본 열기 ↗
-              </a>
+              {data.channel_slug ? (
+                <a
+                  href={`/article/${data.channel_slug}/${data.article_id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:underline"
+                >
+                  글 #{data.article_id} · 원본 열기 ↗
+                </a>
+              ) : (
+                <span className="opacity-60">글 #{data.article_id}</span>
+              )}
               <ConfirmDialog
                 trigger={
                   <Button
