@@ -21,9 +21,11 @@ from app.db.engine import create_engine_and_tables
 from app.backup.downloader import ExternalDownloader
 from app.llm.service import LinkAnalysisService
 from app.llm.version import VersionDetector
+from app.middleware import no_cache_on_error
 from app.scraper.arca.client import ArcaClient
 
 app = FastAPI(title="Sentinel")
+app.middleware("http")(no_cache_on_error)
 
 worker: BackupWorker | None = None
 
