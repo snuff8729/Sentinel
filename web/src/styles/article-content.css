@@ -242,3 +242,37 @@
 .arca-comment-section .sep:empty {
   display: none;
 }
+
+.save-btn-host {
+  position: relative;
+  display: inline-block;
+}
+
+.save-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  cursor: pointer;
+  opacity: 0.4;
+  transition: opacity 0.15s ease;
+  padding: 0;
+}
+
+.save-btn-host:hover .save-btn,
+.save-btn:hover,
+.save-btn:focus-visible {
+  opacity: 1;
+}
+
+.save-btn:active {
+  background: rgba(0, 0, 0, 0.8);
+}

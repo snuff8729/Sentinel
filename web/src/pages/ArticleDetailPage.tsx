@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -6,6 +6,7 @@ import { articleApi, backupApi, channelApi, versionApi } from '@/api/client'
 import type { ChannelInfo } from '@/api/types'
 import { Input } from '@/components/ui/input'
 import type { ArticleDetail } from '@/api/types'
+import { attachSaveButtons } from '@/lib/saveImageButton'
 import '@/styles/article-content.css'
 
 export function ArticleDetailPage() {
@@ -21,6 +22,7 @@ export function ArticleDetailPage() {
   const [backupStatus, setBackupStatus] = useState<string | null>(null)
   const [versionGroup, setVersionGroup] = useState<{ id: number; name: string; articles: { id: number; title: string; version_label: string | null; backup_status: string; created_at: string | null }[] } | null>(null)
   const [channelInfo, setChannelInfo] = useState<ChannelInfo | null>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!slug || !id) return
@@ -55,6 +57,16 @@ export function ArticleDetailPage() {
     const results = await versionApi.searchGroups(keyword)
     setVersionResults(results)
   }
+
+  const bodyDanger = useMemo(
+    () => ({ __html: detail?.content_html ?? '' }),
+    [detail?.content_html]
+  )
+
+  useEffect(() => {
+    if (!detail || !contentRef.current) return
+    return attachSaveButtons(contentRef.current, detail.id)
+  }, [detail?.id])
 
   if (loading) return <div className="text-center py-8 text-muted-foreground">로딩 중...</div>
   if (!detail) return <div className="text-center py-8">게시글을 찾을 수 없습니다.</div>
@@ -271,8 +283,9 @@ export function ArticleDetailPage() {
 
       {/* 본문 */}
       <div
+        ref={contentRef}
         className="arca-article-content border-t pt-4"
-        dangerouslySetInnerHTML={{ __html: detail.content_html }}
+        dangerouslySetInnerHTML={bodyDanger}
       />
 
       {/* 댓글 */}
