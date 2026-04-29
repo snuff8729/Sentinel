@@ -10,7 +10,8 @@ GOOD_URL = "https://ac-p3.namu.la/20260428sac/abcdef0123456789abcdef0123456789ab
 
 @pytest.fixture
 def client_factory():
-    def _make(fetch_result=b"RIFFxxxxWEBP", parse_result=True):
+    def _make(fetch_result=b"RIFFxxxxWEBP", parse_result=None):
+        """parse_result: dict (NAI), None (not NAI). Bool no longer accepted."""
         engine = create_engine_and_tables("sqlite:///:memory:")
         calls = {"fetch": 0}
 
@@ -29,21 +30,21 @@ def client_factory():
 
 
 def test_returns_has_nai_true(client_factory):
-    client, _ = client_factory(parse_result=True)
+    client, _ = client_factory(parse_result={"prompt": "x"})
     r = client.get("/api/image-meta", params={"article_id": 42, "url": GOOD_URL})
     assert r.status_code == 200
     assert r.json() == {"has_nai": True, "cached": False}
 
 
 def test_returns_has_nai_false(client_factory):
-    client, _ = client_factory(parse_result=False)
+    client, _ = client_factory()
     r = client.get("/api/image-meta", params={"article_id": 42, "url": GOOD_URL})
     assert r.status_code == 200
     assert r.json() == {"has_nai": False, "cached": False}
 
 
 def test_second_call_returns_cached(client_factory):
-    client, calls = client_factory(parse_result=True)
+    client, calls = client_factory(parse_result={"prompt": "x"})
     client.get("/api/image-meta", params={"article_id": 42, "url": GOOD_URL})
     r = client.get("/api/image-meta", params={"article_id": 42, "url": GOOD_URL})
     assert r.json() == {"has_nai": True, "cached": True}
@@ -83,3 +84,34 @@ def test_fetch_failure_returns_has_nai_false_and_does_not_cache(client_factory):
     assert r.json() == {"has_nai": False, "cached": False}
     client.get("/api/image-meta", params={"article_id": 42, "url": GOOD_URL})
     assert calls["fetch"] == 2
+
+
+def test_default_response_omits_metadata_field(client_factory):
+    client, _ = client_factory(parse_result={"prompt": "p"})
+    r = client.get("/api/image-meta", params={"article_id": 42, "url": GOOD_URL})
+    assert r.status_code == 200
+    body = r.json()
+    assert body == {"has_nai": True, "cached": False}
+    assert "metadata" not in body
+
+
+def test_include_full_returns_metadata_field(client_factory):
+    client, _ = client_factory(parse_result={"prompt": "hello", "steps": 28})
+    r = client.get(
+        "/api/image-meta",
+        params={"article_id": 42, "url": GOOD_URL, "include": "full"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["has_nai"] is True
+    assert body["metadata"] == {"prompt": "hello", "steps": 28}
+
+
+def test_include_other_value_ignored(client_factory):
+    client, _ = client_factory(parse_result={"prompt": "p"})
+    r = client.get(
+        "/api/image-meta",
+        params={"article_id": 42, "url": GOOD_URL, "include": "other"},
+    )
+    assert r.status_code == 200
+    assert "metadata" not in r.json()
