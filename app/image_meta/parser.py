@@ -10,13 +10,7 @@ import struct
 
 
 def parse_has_nai(buf: bytes) -> bool:
-    exif = _extract_exif_chunk(buf)
-    if exif is None:
-        return False
-    user_comment = _extract_user_comment(exif)
-    if user_comment is None:
-        return False
-    return _is_nai_signature(user_comment)
+    return parse_nai_metadata(buf) is not None
 
 
 def _extract_exif_chunk(buf: bytes) -> bytes | None:
@@ -96,18 +90,127 @@ def _decode_user_comment(payload: bytes, fmt: str, type_: int, count: int, vbyte
     return body.decode("utf-8", "replace")
 
 
-def _is_nai_signature(text: str) -> bool:
+def parse_nai_metadata(buf: bytes) -> dict | None:
+    exif = _extract_exif_chunk(buf)
+    if exif is None:
+        return None
+    text = _extract_user_comment(exif)
+    if text is None:
+        return None
+    return _to_metadata(text)
+
+
+def _to_metadata(text: str) -> dict | None:
     try:
         outer = json.loads(text)
     except (ValueError, TypeError):
-        return False
+        return None
     if not isinstance(outer, dict):
-        return False
+        return None
     inner_str = outer.get("Comment")
     if not isinstance(inner_str, str):
-        return False
+        return None
     try:
         inner = json.loads(inner_str)
     except (ValueError, TypeError):
-        return False
-    return isinstance(inner, dict) and "prompt" in inner
+        return None
+    if not isinstance(inner, dict) or "prompt" not in inner:
+        return None
+    return _convert_nai_format(inner)
+
+
+def _convert_nai_format(inner: dict) -> dict:
+    out: dict = {}
+
+    if isinstance(inner.get("prompt"), str):
+        out["prompt"] = inner["prompt"]
+
+    negative = _extract_negative(inner)
+    if negative:
+        out["negative"] = negative
+
+    _maybe_int(out, "steps", inner.get("steps"))
+    _maybe_float(out, "cfg_scale", inner.get("scale"))
+    _maybe_float(out, "cfg_rescale", inner.get("cfg_rescale"))
+    _maybe_int(out, "seed", inner.get("seed"))
+    _maybe_str(out, "sampler", inner.get("sampler"))
+    _maybe_str(out, "scheduler", inner.get("noise_schedule"))
+    _maybe_int(out, "width", inner.get("width"))
+    _maybe_int(out, "height", inner.get("height"))
+
+    chars = _extract_characters(inner)
+    if chars:
+        out["characters"] = chars
+
+    out["source"] = "exif_user_comment"
+    return out
+
+
+def _extract_negative(inner: dict) -> str:
+    v4_neg = inner.get("v4_negative_prompt")
+    if isinstance(v4_neg, dict):
+        cap = v4_neg.get("caption")
+        if isinstance(cap, dict):
+            base = cap.get("base_caption")
+            if isinstance(base, str) and base:
+                return base
+    for key in ("uc", "negative_prompt", "undesired_content"):
+        v = inner.get(key)
+        if isinstance(v, str) and v:
+            return v
+    return ""
+
+
+def _extract_characters(inner: dict) -> list[dict]:
+    pos_caps = _char_captions(inner.get("v4_prompt"))
+    neg_caps = _char_captions(inner.get("v4_negative_prompt"))
+    n = max(len(pos_caps), len(neg_caps))
+    if n == 0:
+        return []
+    return [
+        {
+            "prompt": pos_caps[i] if i < len(pos_caps) else "",
+            "negative": neg_caps[i] if i < len(neg_caps) else "",
+        }
+        for i in range(n)
+    ]
+
+
+def _char_captions(v4_block) -> list[str]:
+    if not isinstance(v4_block, dict):
+        return []
+    cap = v4_block.get("caption")
+    if not isinstance(cap, dict):
+        return []
+    arr = cap.get("char_captions")
+    if not isinstance(arr, list):
+        return []
+    out = []
+    for c in arr:
+        if isinstance(c, dict):
+            cc = c.get("char_caption")
+            out.append(cc if isinstance(cc, str) else "")
+    return out
+
+
+def _maybe_int(out: dict, key: str, v) -> None:
+    if v is None:
+        return
+    try:
+        out[key] = int(v)
+    except (ValueError, TypeError):
+        pass
+
+
+def _maybe_float(out: dict, key: str, v) -> None:
+    if v is None:
+        return
+    try:
+        out[key] = float(v)
+    except (ValueError, TypeError):
+        pass
+
+
+def _maybe_str(out: dict, key: str, v) -> None:
+    if isinstance(v, str) and v:
+        out[key] = v
