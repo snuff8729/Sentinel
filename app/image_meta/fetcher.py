@@ -86,3 +86,28 @@ def _try_range(url: str, n: int) -> bytes | None:
         logger.warning("image-meta non-2xx %s: %s", r.status_code, url[:100])
         return None
     return r.content
+
+
+_FULL_MAX_BYTES = 50 * 1024 * 1024
+
+
+def fetch_full_image(url: str) -> bytes | None:
+    """Stream the full image bytes from namu CDN (?type=orig). Caps at 50MB."""
+    url = _force_orig(url)
+    headers = dict(_HEADERS)
+    try:
+        with httpx.Client(timeout=60, follow_redirects=True) as client:
+            with client.stream("GET", url, headers=headers) as r:
+                if r.status_code not in (200, 206):
+                    logger.warning("save fetch non-2xx %s: %s", r.status_code, url[:100])
+                    return None
+                buf = bytearray()
+                for chunk in r.iter_bytes():
+                    buf.extend(chunk)
+                    if len(buf) > _FULL_MAX_BYTES:
+                        logger.warning("save fetch exceeds 50MB cap: %s", url[:100])
+                        return None
+                return bytes(buf)
+    except httpx.HTTPError as e:
+        logger.warning("save fetch failed: %s (%s)", url[:100], e)
+        return None
