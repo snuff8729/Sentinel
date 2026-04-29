@@ -77,57 +77,66 @@ export function SavedImageDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="max-w-7xl w-[95vw] h-[90vh] p-0 gap-0 overflow-hidden">
-        <div className="flex flex-col md:flex-row h-full">
-          <div className="flex-1 bg-black/90 flex items-center justify-center overflow-hidden">
-            {data?.file_path && (
+      <DialogContent
+        showCloseButton={false}
+        className="!grid-cols-1 max-w-7xl w-[95vw] h-[90vh] p-0 gap-0 overflow-hidden flex flex-col md:flex-row"
+      >
+        <div className="flex-1 min-h-0 bg-black/90 flex items-center justify-center overflow-hidden relative">
+          {data?.file_path && (
+            <img
+              src={`/data/${data.file_path}`}
+              className="max-h-full max-w-full object-contain"
+              alt=""
+            />
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="닫기"
+            className="absolute top-2 right-2 w-8 h-8 inline-flex items-center justify-center rounded bg-black/60 text-white hover:bg-black/80"
+          >
+            ×
+          </button>
+        </div>
+        <div className="w-full md:w-[400px] md:h-full md:max-h-full max-h-[40vh] border-l overflow-y-auto p-4 space-y-4">
+          {loading && <p className="text-sm text-muted-foreground">로딩...</p>}
+          {error && <p className="text-sm text-destructive">로드 실패</p>}
+          {data?.payload_json && <MetadataPanel meta={data.payload_json} />}
+          {data && (
+            <TagEditor
+              imageId={data.id}
+              tags={data.tags}
+              onTagAdded={handleTagAdded}
+              onTagRemoved={handleTagRemoved}
+            />
+          )}
+          {data && (
+            <div className="flex justify-between items-center pt-4 border-t text-xs text-muted-foreground gap-2">
               <a
                 href={`/data/${data.file_path}`}
                 target="_blank"
                 rel="noreferrer"
-                className="block max-h-full max-w-full"
+                className="hover:underline"
               >
-                <img
-                  src={`/data/${data.file_path}`}
-                  className="max-h-[90vh] max-w-full object-contain"
-                  alt=""
-                />
+                글 #{data.article_id} · 원본 열기 ↗
               </a>
-            )}
-          </div>
-          <div className="w-full md:w-[400px] border-l overflow-y-auto p-4 space-y-4">
-            {loading && <p className="text-sm text-muted-foreground">로딩...</p>}
-            {error && <p className="text-sm text-destructive">로드 실패</p>}
-            {data?.payload_json && <MetadataPanel meta={data.payload_json} />}
-            {data && (
-              <TagEditor
-                imageId={data.id}
-                tags={data.tags}
-                onTagAdded={handleTagAdded}
-                onTagRemoved={handleTagRemoved}
+              <ConfirmDialog
+                trigger={
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                  >
+                    삭제
+                  </Button>
+                }
+                title="이미지 삭제"
+                description="이 저장된 이미지와 EXIF 사이드카, 태그 연결을 모두 삭제합니다."
+                confirmText="삭제"
+                onConfirm={handleDelete}
               />
-            )}
-            {data && (
-              <div className="flex justify-between items-center pt-4 border-t text-xs text-muted-foreground">
-                <span>글 #{data.article_id}</span>
-                <ConfirmDialog
-                  trigger={
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-destructive border-destructive/40 hover:bg-destructive/10"
-                    >
-                      삭제
-                    </Button>
-                  }
-                  title="이미지 삭제"
-                  description="이 저장된 이미지와 EXIF 사이드카, 태그 연결을 모두 삭제합니다."
-                  confirmText="삭제"
-                  onConfirm={handleDelete}
-                />
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
