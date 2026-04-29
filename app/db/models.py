@@ -113,3 +113,16 @@ class SavedImage(SQLModel, table=True):
     retry_count: int = Field(default=0)
     created_at: datetime
     completed_at: datetime | None = None
+
+
+class Tag(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    value: str = Field(unique=True, index=True)
+    created_at: datetime
+
+
+class ImageTag(SQLModel, table=True):
+    __tablename__ = "image_tag"
+    image_id: int = Field(foreign_key="saved_image.id", primary_key=True)
+    tag_id: int = Field(foreign_key="tag.id", primary_key=True)
+    assigned_at: datetime

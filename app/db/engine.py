@@ -56,6 +56,7 @@ def create_engine_and_tables(db_url: str | None = None):
             pass  # column already exists
         conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_saved_image_aid_hex ON saved_image(article_id, hex)"))
         conn.execute(text("CREATE INDEX IF NOT EXISTS ix_saved_image_status ON saved_image(status)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_image_tag_tag_id ON image_tag(tag_id)"))
         conn.commit()
 
     return engine
