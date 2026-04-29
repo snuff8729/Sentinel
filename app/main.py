@@ -80,6 +80,10 @@ async def startup():
     version_router = create_version_router(engine)
     app.include_router(version_router, prefix="/api/versions")
 
+    from app.api.image_meta import create_image_meta_router
+    image_meta_router = create_image_meta_router(engine)
+    app.include_router(image_meta_router, prefix="/api/image-meta")
+
     asyncio.create_task(worker.run())
 
     # 백업 파일 정적 서빙 (이미지/비디오/오디오)

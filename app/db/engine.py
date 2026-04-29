@@ -3,6 +3,7 @@ import os
 from collections.abc import Generator
 from contextlib import contextmanager
 from sqlalchemy import event, text
+from sqlalchemy.pool import StaticPool
 from dotenv import load_dotenv
 from sqlmodel import Session, SQLModel, create_engine as sqlmodel_create_engine
 import sqlite_vec
@@ -20,7 +21,17 @@ EMBEDDING_DIM = 768
 def create_engine_and_tables(db_url: str | None = None):
     if db_url is None:
         db_url = os.environ.get("DATABASE_URL", DEFAULT_DB_URL)
-    engine = sqlmodel_create_engine(db_url, echo=False)
+    # In-memory SQLite must use StaticPool so all threads share the same
+    # connection and see the same schema (relevant in tests with asyncio.to_thread).
+    if db_url == "sqlite:///:memory:":
+        engine = sqlmodel_create_engine(
+            db_url,
+            echo=False,
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+    else:
+        engine = sqlmodel_create_engine(db_url, echo=False)
 
     # sqlite-vec 확장 로드
     @event.listens_for(engine, "connect")
