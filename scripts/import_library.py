@@ -13,6 +13,8 @@ import os
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from app.db.engine import create_engine_and_tables
 from app.saved.library import LibraryService
 
