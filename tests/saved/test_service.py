@@ -192,3 +192,56 @@ def test_delete_cascades_image_tag_and_files(tmp_path):
 def test_delete_returns_false_for_missing():
     service, _, __ = _make_service()
     assert service.delete_saved(99999) is False
+
+
+def test_list_saved_includes_source_field():
+    service, engine, _ = _make_service()
+    with Session(engine) as s:
+        s.add(SavedImage(
+            article_id=42, hex="d" * 64, src_url=URL, file_path="saved/42/d.png",
+            status="completed", created_at=datetime.now(timezone.utc), source="article",
+        ))
+        s.add(SavedImage(
+            article_id=0, hex="e" * 64, src_url="", file_path="library/ee/e.png",
+            status="completed", created_at=datetime.now(timezone.utc), source="library",
+        ))
+        s.commit()
+    result = service.list_saved(offset=0, limit=10)
+    sources = {item["source"] for item in result["items"]}
+    assert sources == {"article", "library"}
+
+
+def test_get_includes_source_field():
+    service, engine, _ = _make_service()
+    with Session(engine) as s:
+        row = SavedImage(
+            article_id=0, hex="f" * 64, src_url="", file_path="library/ff/f.png",
+            status="completed", created_at=datetime.now(timezone.utc), source="library",
+        )
+        s.add(row)
+        s.commit()
+        s.refresh(row)
+        rid = row.id
+    result = service.get(rid)
+    assert result is not None
+    assert result["source"] == "library"
+
+
+def test_queue_snapshot_excludes_library_rows():
+    service, engine, _ = _make_service()
+    with Session(engine) as s:
+        s.add(SavedImage(
+            article_id=42, hex="a" * 64, src_url=URL, file_path="saved/42/a.png",
+            status="completed", completed_at=datetime.now(timezone.utc),
+            created_at=datetime.now(timezone.utc), source="article",
+        ))
+        s.add(SavedImage(
+            article_id=0, hex="b" * 64, src_url="", file_path="library/bb/b.png",
+            status="completed", completed_at=datetime.now(timezone.utc),
+            created_at=datetime.now(timezone.utc), source="library",
+        ))
+        s.commit()
+    snap = service.queue_snapshot()
+    completed_hexes = {r["hex"] for r in snap["recent_completed"]}
+    assert "a" * 64 in completed_hexes
+    assert "b" * 64 not in completed_hexes

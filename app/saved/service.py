@@ -137,19 +137,23 @@ class SavedImageService:
     def queue_snapshot(self, recent_limit: int = 10) -> dict:
         with get_session(self._engine) as session:
             pending = list(session.exec(
-                select(SavedImage).where(SavedImage.status == "pending")
+                select(SavedImage)
+                .where(SavedImage.status == "pending", SavedImage.source == "article")
                 .order_by(SavedImage.created_at)
             ).all())
             in_progress = list(session.exec(
-                select(SavedImage).where(SavedImage.status == "in_progress")
+                select(SavedImage)
+                .where(SavedImage.status == "in_progress", SavedImage.source == "article")
                 .order_by(SavedImage.created_at)
             ).all())
             failed = list(session.exec(
-                select(SavedImage).where(SavedImage.status == "failed")
+                select(SavedImage)
+                .where(SavedImage.status == "failed", SavedImage.source == "article")
                 .order_by(SavedImage.created_at.desc())
             ).all())
             completed = list(session.exec(
-                select(SavedImage).where(SavedImage.status == "completed")
+                select(SavedImage)
+                .where(SavedImage.status == "completed", SavedImage.source == "article")
                 .order_by(SavedImage.completed_at.desc())
                 .limit(recent_limit)
             ).all())
