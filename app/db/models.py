@@ -113,6 +113,7 @@ class SavedImage(SQLModel, table=True):
     retry_count: int = Field(default=0)
     created_at: datetime
     completed_at: datetime | None = None
+    source: str = Field(default="article", index=True)
 
 
 class Tag(SQLModel, table=True):
