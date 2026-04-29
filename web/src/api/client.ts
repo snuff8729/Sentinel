@@ -253,3 +253,90 @@ export const backupApi = {
     return res.json() as Promise<Record<string, { status: string; group_name: string | null; group_id: number | null }>>
   },
 }
+
+// === Saved images + tags (Spec 2A) ===
+
+export interface TagSummary {
+  id: number
+  value: string
+}
+
+export interface NaiMetadata {
+  prompt?: string
+  negative?: string
+  steps?: number
+  cfg_scale?: number
+  cfg_rescale?: number
+  seed?: number
+  sampler?: string
+  scheduler?: string
+  width?: number
+  height?: number
+  characters?: { prompt: string; negative: string }[]
+  source?: string
+}
+
+export interface SavedImageItem {
+  id: number
+  article_id: number
+  hex: string
+  src_url: string
+  file_path: string | null
+  payload_json: NaiMetadata | null
+  status: string
+  created_at: string
+  completed_at: string | null
+  tags: TagSummary[]
+}
+
+export interface SavedImageList {
+  items: SavedImageItem[]
+  total: number
+  has_more: boolean
+}
+
+export const savedImagesApi = {
+  list: (params: { offset?: number; limit?: number; untagged?: boolean; tag_prefix?: string }) => {
+    const q = new URLSearchParams()
+    if (params.offset != null) q.set('offset', String(params.offset))
+    if (params.limit != null) q.set('limit', String(params.limit))
+    if (params.untagged) q.set('untagged', 'true')
+    if (params.tag_prefix) q.set('tag_prefix', params.tag_prefix)
+    return fetch(`${BASE}/saved-images?${q}`).then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      return r.json() as Promise<SavedImageList>
+    })
+  },
+  get: (id: number) =>
+    fetch(`${BASE}/saved-images/${id}`).then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      return r.json() as Promise<SavedImageItem>
+    }),
+  delete: (id: number) =>
+    fetch(`${BASE}/saved-images/${id}`, { method: 'DELETE' }).then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    }),
+  addTag: (id: number, value: string) =>
+    fetch(`${BASE}/saved-images/${id}/tags`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value }),
+    }).then(async r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      return (await r.json()) as { tag: TagSummary }
+    }),
+  removeTag: (imageId: number, tagId: number) =>
+    fetch(`${BASE}/saved-images/${imageId}/tags/${tagId}`, { method: 'DELETE' }).then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    }),
+}
+
+export const tagsApi = {
+  search: (prefix: string, limit = 20) => {
+    const q = new URLSearchParams({ prefix, limit: String(limit) })
+    return fetch(`${BASE}/tags?${q}`).then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      return r.json() as Promise<TagSummary[]>
+    })
+  },
+}
