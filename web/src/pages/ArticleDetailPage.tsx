@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -67,6 +67,15 @@ export function ArticleDetailPage() {
     const results = await versionApi.searchGroups(keyword)
     setVersionResults(results)
   }
+
+  const bodyDanger = useMemo(
+    () => ({ __html: detail?.content_html ?? '' }),
+    [detail?.content_html]
+  )
+  const commentsDanger = useMemo(
+    () => ({ __html: commentsHtml }),
+    [commentsHtml]
+  )
 
   if (loading) return <div className="text-center py-8 text-muted-foreground">로딩 중...</div>
   if (!detail) return <div className="text-center py-8">게시글을 찾을 수 없습니다.</div>
@@ -285,14 +294,14 @@ export function ArticleDetailPage() {
       <div
         ref={contentRef}
         className="arca-article-content border-t pt-4"
-        dangerouslySetInnerHTML={{ __html: detail.content_html }}
+        dangerouslySetInnerHTML={bodyDanger}
       />
 
       {/* 댓글 */}
       {commentsHtml && (
         <div
           className="arca-comment-section border-t pt-4"
-          dangerouslySetInnerHTML={{ __html: commentsHtml }}
+          dangerouslySetInnerHTML={commentsDanger}
         />
       )}
       <NaiMetadataDialog
