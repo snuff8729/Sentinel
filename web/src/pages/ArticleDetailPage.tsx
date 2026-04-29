@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -6,8 +6,6 @@ import { articleApi, backupApi, channelApi, versionApi } from '@/api/client'
 import type { ChannelInfo } from '@/api/types'
 import { Input } from '@/components/ui/input'
 import type { ArticleDetail } from '@/api/types'
-import { attachNaiBadges } from '@/lib/imageMetaBadge'
-import { NaiMetadataDialog } from '@/components/NaiMetadataDialog'
 import '@/styles/article-content.css'
 
 export function ArticleDetailPage() {
@@ -23,8 +21,6 @@ export function ArticleDetailPage() {
   const [backupStatus, setBackupStatus] = useState<string | null>(null)
   const [versionGroup, setVersionGroup] = useState<{ id: number; name: string; articles: { id: number; title: string; version_label: string | null; backup_status: string; created_at: string | null }[] } | null>(null)
   const [channelInfo, setChannelInfo] = useState<ChannelInfo | null>(null)
-  const [dialogTarget, setDialogTarget] = useState<{ url: string; articleId: number } | null>(null)
-  const contentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!slug || !id) return
@@ -53,29 +49,12 @@ export function ArticleDetailPage() {
     }).catch(() => setVersionGroup(null))
   }, [slug, id])
 
-  useEffect(() => {
-    if (!detail || !contentRef.current) return
-    const cleanup = attachNaiBadges(contentRef.current, detail.id, (url) => {
-      setDialogTarget({ url, articleId: detail.id })
-    })
-    return cleanup
-  }, [detail?.id])
-
   const handleSearchVersions = async (keyword: string) => {
     setVersionSearch(keyword)
     if (keyword.trim().length < 1) { setVersionResults([]); return }
     const results = await versionApi.searchGroups(keyword)
     setVersionResults(results)
   }
-
-  const bodyDanger = useMemo(
-    () => ({ __html: detail?.content_html ?? '' }),
-    [detail?.content_html]
-  )
-  const commentsDanger = useMemo(
-    () => ({ __html: commentsHtml }),
-    [commentsHtml]
-  )
 
   if (loading) return <div className="text-center py-8 text-muted-foreground">로딩 중...</div>
   if (!detail) return <div className="text-center py-8">게시글을 찾을 수 없습니다.</div>
@@ -292,24 +271,17 @@ export function ArticleDetailPage() {
 
       {/* 본문 */}
       <div
-        ref={contentRef}
         className="arca-article-content border-t pt-4"
-        dangerouslySetInnerHTML={bodyDanger}
+        dangerouslySetInnerHTML={{ __html: detail.content_html }}
       />
 
       {/* 댓글 */}
       {commentsHtml && (
         <div
           className="arca-comment-section border-t pt-4"
-          dangerouslySetInnerHTML={commentsDanger}
+          dangerouslySetInnerHTML={{ __html: commentsHtml }}
         />
       )}
-      <NaiMetadataDialog
-        open={dialogTarget !== null}
-        onOpenChange={(v) => { if (!v) setDialogTarget(null) }}
-        imageUrl={dialogTarget?.url ?? null}
-        articleId={dialogTarget?.articleId ?? null}
-      />
     </div>
   )
 }
