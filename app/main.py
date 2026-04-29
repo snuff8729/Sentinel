@@ -10,6 +10,7 @@ from app.api.channel import create_channel_router
 from app.api.follow import create_follow_router
 from app.api.version import create_version_router
 from app.api.settings import create_settings_router
+from app.api.image_meta import create_image_meta_router
 from app.backup.events import EventBus
 from app.backup.service import BackupService
 from app.backup.worker import BackupWorker
@@ -80,7 +81,6 @@ async def startup():
     version_router = create_version_router(engine)
     app.include_router(version_router, prefix="/api/versions")
 
-    from app.api.image_meta import create_image_meta_router
     image_meta_router = create_image_meta_router(engine)
     app.include_router(image_meta_router, prefix="/api/image-meta")
 

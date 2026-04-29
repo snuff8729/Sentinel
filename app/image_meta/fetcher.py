@@ -7,9 +7,10 @@ bytes received or None on any HTTP/network failure."""
 from __future__ import annotations
 
 import logging
-import struct
 
 import httpx
+
+from app.image_meta.parser import _extract_exif_chunk
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ def fetch_image_head_bytes(url: str) -> bytes | None:
     body = _try_range(url, _HEAD_BYTES)
     if body is None:
         return None
-    if _has_exif_chunk(body):
+    if _extract_exif_chunk(body) is not None:
         return body
     body = _try_range(url, _RETRY_BYTES)
     return body
@@ -44,16 +45,3 @@ def _try_range(url: str, n: int) -> bytes | None:
         logger.warning("image-meta non-2xx %s: %s", r.status_code, url[:100])
         return None
     return r.content
-
-
-def _has_exif_chunk(buf: bytes) -> bool:
-    if len(buf) < 12 or buf[:4] != b"RIFF" or buf[8:12] != b"WEBP":
-        return False
-    i = 12
-    while i + 8 <= len(buf):
-        fourcc = buf[i : i + 4]
-        (size,) = struct.unpack("<I", buf[i + 4 : i + 8])
-        if fourcc == b"EXIF":
-            return True
-        i += 8 + size + (size & 1)
-    return False
