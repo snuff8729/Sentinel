@@ -5,25 +5,18 @@ NAI metadata dict (or None if not NAI). Both are injectable for tests."""
 
 from __future__ import annotations
 
-import hashlib
 import json
-import re
 from datetime import datetime, timezone
 from typing import Callable
 
 from app.db.engine import get_session
 from app.db.models import ImageMetaCache
+from app.image_meta.keys import extract_hex_from_url
 from app.image_meta.parser import parse_nai_metadata
-
-_HEX64_RE = re.compile(r"[a-fA-F0-9]{64}")
 
 
 def _make_key(article_id: int, url: str) -> str:
-    m = _HEX64_RE.search(url)
-    if m:
-        return f"{article_id}_{m.group(0).lower()}"
-    digest = hashlib.sha1(url.encode("utf-8")).hexdigest()
-    return f"{article_id}_{digest}"
+    return f"{article_id}_{extract_hex_from_url(url)}"
 
 
 class ImageMetaService:
