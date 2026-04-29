@@ -1,7 +1,7 @@
 const HOST_CLASS = 'nai-badge-host'
 const BADGE_CLASS = 'nai-badge'
 const SKIP_CLASSES = ['emoticon', 'arca-emoticon', 'twemoji']
-const CONCURRENCY = 6
+const CONCURRENCY = 2  // arca CDN rate-limits the original-image (?type=orig) endpoint aggressively
 const ROOT_MARGIN = '200px'
 
 type LimitFn = (task: () => Promise<unknown>) => void

@@ -71,3 +71,23 @@ def test_parse_has_nai_still_works_via_wrapper():
     data = (FIXTURE_DIR / "nai_sample.webp").read_bytes()
     assert parse_has_nai(data) is True
     assert parse_has_nai(b"\x89PNG\r\n\x1a\n") is False
+
+
+def test_parse_nai_metadata_returns_dict_for_real_nai_png():
+    data = (FIXTURE_DIR / "nai_sample.png").read_bytes()
+    meta = parse_nai_metadata(data)
+    assert meta is not None
+    assert isinstance(meta.get("prompt"), str) and len(meta["prompt"]) > 0
+    assert isinstance(meta.get("steps"), int)
+    assert isinstance(meta.get("seed"), int)
+    assert meta.get("source") == "exif_user_comment"
+
+
+def test_parse_nai_metadata_returns_none_for_png_without_comment_chunk():
+    # Synthetic PNG: signature + IHDR + IDAT (no tEXt chunk)
+    sig = b"\x89PNG\r\n\x1a\n"
+    ihdr_data = b"\x00" * 13
+    ihdr = (13).to_bytes(4, "big") + b"IHDR" + ihdr_data + b"\x00\x00\x00\x00"
+    idat = (0).to_bytes(4, "big") + b"IDAT" + b"\x00\x00\x00\x00"
+    buf = sig + ihdr + idat
+    assert parse_nai_metadata(buf) is None

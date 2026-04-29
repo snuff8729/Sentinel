@@ -91,6 +91,14 @@ def _decode_user_comment(payload: bytes, fmt: str, type_: int, count: int, vbyte
 
 
 def parse_nai_metadata(buf: bytes) -> dict | None:
+    if len(buf) >= 12 and buf[:4] == b"RIFF" and buf[8:12] == b"WEBP":
+        return _parse_nai_from_webp(buf)
+    if buf[:8] == b"\x89PNG\r\n\x1a\n":
+        return _parse_nai_from_png(buf)
+    return None
+
+
+def _parse_nai_from_webp(buf: bytes) -> dict | None:
     exif = _extract_exif_chunk(buf)
     if exif is None:
         return None
@@ -98,6 +106,54 @@ def parse_nai_metadata(buf: bytes) -> dict | None:
     if text is None:
         return None
     return _to_metadata(text)
+
+
+def _parse_nai_from_png(buf: bytes) -> dict | None:
+    comment_str = _extract_png_text_chunk(buf, b"Comment")
+    if comment_str is None:
+        return None
+    try:
+        inner = json.loads(comment_str)
+    except (ValueError, TypeError):
+        return None
+    if not isinstance(inner, dict) or "prompt" not in inner:
+        return None
+    return _convert_nai_format(inner)
+
+
+def _extract_png_text_chunk(buf: bytes, key: bytes) -> str | None:
+    i = 8
+    while i + 8 <= len(buf):
+        try:
+            (length,) = struct.unpack(">I", buf[i : i + 4])
+        except struct.error:
+            return None
+        ctype = buf[i + 4 : i + 8]
+        if ctype == b"IDAT":
+            return None
+        end = i + 8 + length + 4
+        if end > len(buf):
+            return None
+        data = buf[i + 8 : i + 8 + length]
+        if ctype == b"tEXt":
+            try:
+                k, v = data.split(b"\x00", 1)
+                if k == key:
+                    return v.decode("utf-8", "replace")
+            except ValueError:
+                pass
+        elif ctype == b"iTXt":
+            try:
+                k, rest = data.split(b"\x00", 1)
+                if k == key:
+                    rest = rest[2:]  # comp_flag(1) + comp_method(1)
+                    _, rest = rest.split(b"\x00", 1)  # skip language tag
+                    _, txt = rest.split(b"\x00", 1)  # skip translated keyword
+                    return txt.decode("utf-8", "replace")
+            except (ValueError, IndexError):
+                pass
+        i = end
+    return None
 
 
 def _to_metadata(text: str) -> dict | None:
