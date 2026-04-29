@@ -48,7 +48,11 @@ function wrapWithBadgeHost(img: HTMLImageElement): void {
   host.appendChild(badge)
 }
 
-async function fetchAndApply(img: HTMLImageElement, articleId: number): Promise<void> {
+async function fetchAndApply(
+  img: HTMLImageElement,
+  articleId: number,
+  onOpenLightbox: ((url: string) => void) | undefined,
+): Promise<void> {
   const url = img.src
   try {
     const r = await fetch(
@@ -59,16 +63,29 @@ async function fetchAndApply(img: HTMLImageElement, articleId: number): Promise<
       return
     }
     const data = (await r.json()) as { has_nai: boolean }
-    if (data.has_nai) {
-      const badge = img.parentElement?.querySelector(`.${BADGE_CLASS}`) as HTMLElement | null
-      if (badge) badge.style.display = 'inline-flex'
+    if (!data.has_nai) return
+    const host = img.parentElement
+    if (!host) return
+    const badge = host.querySelector(`.${BADGE_CLASS}`) as HTMLElement | null
+    if (badge) badge.style.display = 'inline-flex'
+    if (onOpenLightbox) {
+      host.style.cursor = 'pointer'
+      host.addEventListener('click', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onOpenLightbox(url)
+      })
     }
   } catch (err) {
     console.warn('[image-meta] fetch failed', err, url)
   }
 }
 
-export function attachNaiBadges(root: HTMLElement, articleId: number): () => void {
+export function attachNaiBadges(
+  root: HTMLElement,
+  articleId: number,
+  onOpenLightbox?: (imageUrl: string) => void,
+): () => void {
   const imgs = Array.from(root.querySelectorAll('img')).filter(shouldProcess)
   if (imgs.length === 0) return () => {}
 
@@ -81,7 +98,7 @@ export function attachNaiBadges(root: HTMLElement, articleId: number): () => voi
         if (!entry.isIntersecting) continue
         observer.unobserve(entry.target)
         const img = entry.target as HTMLImageElement
-        limit(() => fetchAndApply(img, articleId))
+        limit(() => fetchAndApply(img, articleId, onOpenLightbox))
       }
     },
     { rootMargin: ROOT_MARGIN }
